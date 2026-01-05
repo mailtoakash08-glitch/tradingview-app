@@ -35,8 +35,8 @@ cd tradingview-app
 npm install
 
 # Configure environment
-cp .env.example .env
-# Edit .env with your IBKR credentials
+./setup-env.sh
+# Or manually: cp env.template .env && nano .env
 
 # Build and start
 npm run build
@@ -73,7 +73,25 @@ tradingview-app/
 
 ## 🔧 Configuration
 
-Edit `.env` file:
+### Important: IB Gateway Ports
+
+Choose the correct port for your setup:
+
+| Application | Environment | Port |
+|-------------|-------------|------|
+| **IB Gateway** | Paper Trading | **4002** ⭐ (Recommended for testing) |
+| **IB Gateway** | Live Trading | **4001** |
+| **TWS** | Paper Trading | **7497** |
+| **TWS** | Live Trading | **7496** |
+
+### Setup Environment
+
+```bash
+# Run setup script (creates .env with correct port)
+./setup-env.sh
+```
+
+Or manually create `.env` file:
 
 ```env
 # Server
@@ -81,10 +99,15 @@ PORT=3000
 NODE_ENV=production
 
 # Interactive Brokers
-IBKR_HOST=127.0.0.1
-IBKR_PORT=4002
+IBKR_HOST=localhost
+IBKR_PORT=4002        # Use 4002 for IB Gateway Paper, 4001 for Live
 IBKR_CLIENT_ID=1
-IBKR_ACCOUNT_ID=YOUR_ACCOUNT_ID
+IBKR_ACCOUNT_ID=      # Your IBKR account ID (optional)
+
+# Risk Management
+ALLOWED_SYMBOLS=AAPL,MSFT,NVDA,TSLA,GOOGL,AMZN,META,SPY,QQQ
+MAX_TRADES_PER_SYMBOL_PER_DAY=20
+DEFAULT_QTY=100
 ```
 
 ## 🌐 API Endpoints
