@@ -31,6 +31,9 @@ set -e
 cd /root/trading-app
 
 echo "📥 Pulling latest code..."
+# Remove conflicting files first
+rm -f package-lock.json
+git reset --hard HEAD
 git pull origin main
 
 echo "📦 Installing dependencies..."
