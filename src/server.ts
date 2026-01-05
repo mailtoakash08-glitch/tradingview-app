@@ -73,7 +73,7 @@ export function createApp(): Application {
   app.use("/trading", tradingRoutes);
   app.use("/workspace", workspaceRoutes); // Integrated trading workspace
   app.use("/desktop", desktopRoutes); // TradingView Desktop-style interface
-  app.use("/api", dashboardRoutes); // Dashboard API routes
+  app.use("/api/dashboard", dashboardRoutes); // Dashboard API routes
 
   // Dashboard page
   app.get("/dashboard", (req: Request, res: Response) => {
@@ -89,7 +89,7 @@ export function createApp(): Application {
       endpoints: {
         desktop: "/desktop", // 🚀 NEW: TradingView Desktop-style interface
         trading: "/trading",
-        dashboard: "/dashboard", 
+        dashboard: "/dashboard",
         workspace: "/workspace",
         ui: "/ui",
         webhook: "/webhook/tradingview",
