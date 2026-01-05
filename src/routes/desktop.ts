@@ -637,7 +637,7 @@ router.get('/', (req: Request, res: Response) => {
       }
 
       try {
-        const response = await fetch('/api/webhook', {
+        const response = await fetch('/webhook/tradingview', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
