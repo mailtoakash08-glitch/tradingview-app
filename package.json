@@ -1,0 +1,33 @@
+{
+  "name": "trading-automation-backend",
+  "version": "1.0.0",
+  "description": "Backend trading automation app for TradingView + IBKR integration",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "watch": "tsc --watch"
+  },
+  "keywords": [
+    "trading",
+    "automation",
+    "ibkr",
+    "tradingview"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@stoqey/ib": "^1.5.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "lightweight-charts": "^5.1.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
