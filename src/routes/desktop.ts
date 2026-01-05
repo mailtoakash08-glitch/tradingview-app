@@ -592,7 +592,7 @@ router.get('/', (req: Request, res: Response) => {
 
       // Build order payload
       const payload = {
-        strategy: 'manual_trade',
+        strategy: 'manual_bmnr',
         action: action === 'BUY' ? 'ENTRY_LONG' : 'EXIT',
         symbol: symbol,
         qty: quantity,
