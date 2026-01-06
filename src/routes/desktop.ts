@@ -491,6 +491,84 @@ router.get("/", (req: Request, res: Response) => {
     .refresh-btn:hover {
       background: #1E53E5;
     }
+
+    /* Quick Actions Panel */
+    .quick-actions {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #2A2E39;
+    }
+
+    .quick-actions .panel-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: #B2B5BE;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-flip {
+      background: #FF9800 !important;
+      width: 100%;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .btn-flip:hover {
+      background: #F57C00 !important;
+      transform: scale(1.02);
+    }
+
+    .btn-close-all {
+      background: #9C27B0 !important;
+      width: 100%;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .btn-close-all:hover {
+      background: #7B1FA2 !important;
+    }
+
+    /* Action Buttons in Table */
+    .action-btn {
+      background: transparent;
+      border: 1px solid #2A2E39;
+      color: #B2B5BE;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      margin: 0 2px;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #2A2E39;
+      transform: scale(1.1);
+    }
+
+    .close-btn {
+      border-color: #F23645;
+      color: #F23645;
+    }
+
+    .close-btn:hover {
+      background: #F23645;
+      color: #fff;
+    }
+
+    .flip-btn {
+      border-color: #FF9800;
+      color: #FF9800;
+    }
+
+    .flip-btn:hover {
+      background: #FF9800;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -585,6 +663,17 @@ router.get("/", (req: Request, res: Response) => {
           <button type="button" class="btn btn-sell" id="sellBtn">Sell</button>
         </div>
       </form>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <div class="panel-header">⚡ Quick Actions</div>
+        <button type="button" class="btn btn-flip" id="flipBtn">
+          🔄 FLIP Position
+        </button>
+        <button type="button" class="btn btn-close-all" id="closeAllBtn">
+          ❌ Close All
+        </button>
+      </div>
     </div>
 
     <!-- Positions Section -->
@@ -624,11 +713,12 @@ router.get("/", (req: Request, res: Response) => {
               <th>UNREALIZED P&L</th>
               <th>P&L %</th>
               <th>STATUS</th>
+              <th>ACTIONS</th>
             </tr>
           </thead>
           <tbody id="positionsBody">
             <tr>
-              <td colspan="8" class="empty-state">No open positions</td>
+              <td colspan="9" class="empty-state">No open positions</td>
             </tr>
           </tbody>
         </table>
@@ -998,7 +1088,7 @@ router.get("/", (req: Request, res: Response) => {
       const tbody = document.getElementById('positionsBody');
       
       if (positions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No open positions</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No open positions</td></tr>';
         return;
       }
 
@@ -1007,17 +1097,27 @@ router.get("/", (req: Request, res: Response) => {
         const pnlPercent = pos.avgPrice > 0 ? ((pos.currentPrice - pos.avgPrice) / pos.avgPrice * 100) : 0;
         const pnlClass = pnl >= 0 ? 'positive' : 'negative';
         const marketValue = pos.currentPrice * pos.quantity;
+        const positionType = pos.quantity > 0 ? 'LONG' : 'SHORT';
+        const absQuantity = Math.abs(pos.quantity);
 
         return \`
           <tr>
             <td class="symbol-cell">\${pos.symbol}</td>
-            <td>\${pos.quantity}</td>
+            <td>\${absQuantity} \${positionType}</td>
             <td>$\${pos.avgPrice.toFixed(2)}</td>
             <td>$\${pos.currentPrice.toFixed(2)}</td>
-            <td>$\${marketValue.toFixed(2)}</td>
+            <td>$\${Math.abs(marketValue).toFixed(2)}</td>
             <td class="\${pnlClass}">\${pnl >= 0 ? '+' : ''}$\${pnl.toFixed(2)}</td>
             <td class="\${pnlClass}">\${pnl >= 0 ? '+' : ''}\${pnlPercent.toFixed(2)}%</td>
             <td><span class="status-badge status-open">OPEN</span></td>
+            <td>
+              <button class="action-btn close-btn" onclick="closePosition('\${pos.symbol}', \${pos.quantity})" title="Close Position">
+                ✕
+              </button>
+              <button class="action-btn flip-btn" onclick="flipPosition('\${pos.symbol}', \${pos.quantity})" title="Flip Position">
+                🔄
+              </button>
+            </td>
           </tr>
         \`;
       }).join('');
@@ -1057,11 +1157,193 @@ router.get("/", (req: Request, res: Response) => {
       }, 4000);
     }
 
+    // Close Position Function
+    async function closePosition(symbol, currentQty) {
+      if (!confirm('Close position for ' + symbol + '?')) {
+        return;
+      }
+
+      try {
+        const action = currentQty > 0 ? 'EXIT' : 'ENTRY_LONG';
+        const qty = Math.abs(currentQty);
+
+        const response = await fetch('/webhook/tradingview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            strategy: 'manual_bmnr',
+            action: action,
+            symbol: symbol,
+            qty: qty,
+            orderType: 'MKT',
+            outsideRth: true
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.status === 'ok') {
+          showNotification('Position Closed', symbol + ' position closed', 'success');
+          setTimeout(() => { fetchPositions(); fetchAccountSummary(); }, 1000);
+        } else {
+          showNotification('Error', result.error || 'Failed to close position', 'error');
+        }
+      } catch (error) {
+        showNotification('Error', 'Network error: ' + error.message, 'error');
+      }
+    }
+
+    // Flip Position Function
+    async function flipPosition(symbol, currentQty) {
+      if (!confirm('FLIP position for ' + symbol + '? This will close current and open opposite.')) {
+        return;
+      }
+
+      try {
+        const absQty = Math.abs(currentQty);
+        const closeAction = currentQty > 0 ? 'EXIT' : 'ENTRY_LONG';
+        
+        const closeResponse = await fetch('/webhook/tradingview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            strategy: 'manual_bmnr',
+            action: closeAction,
+            symbol: symbol,
+            qty: absQty,
+            orderType: 'MKT',
+            outsideRth: true
+          })
+        });
+
+        const closeResult = await closeResponse.json();
+
+        if (!closeResponse.ok || closeResult.status !== 'ok') {
+          showNotification('Error', 'Failed to close: ' + (closeResult.error || 'Unknown'), 'error');
+          return;
+        }
+
+        setTimeout(async () => {
+          const oppositeAction = currentQty > 0 ? 'EXIT' : 'ENTRY_LONG';
+
+          const openResponse = await fetch('/webhook/tradingview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              strategy: 'manual_bmnr',
+              action: oppositeAction,
+              symbol: symbol,
+              qty: absQty,
+              orderType: 'MKT',
+              outsideRth: true
+            })
+          });
+
+          const openResult = await openResponse.json();
+
+          if (openResponse.ok && openResult.status === 'ok') {
+            showNotification('Flipped!', symbol + ' position flipped successfully!', 'success');
+            setTimeout(() => { fetchPositions(); fetchAccountSummary(); }, 1000);
+          } else {
+            showNotification('Warning', 'Closed but failed to open opposite', 'error');
+            setTimeout(() => { fetchPositions(); fetchAccountSummary(); }, 1000);
+          }
+        }, 500);
+
+      } catch (error) {
+        showNotification('Error', 'Network error: ' + error.message, 'error');
+      }
+    }
+
+    // Close All Positions
+    async function closeAllPositions() {
+      if (positions.length === 0) {
+        showNotification('Info', 'No open positions to close', 'error');
+        return;
+      }
+
+      if (!confirm('Close ALL ' + positions.length + ' positions? Cannot be undone!')) {
+        return;
+      }
+
+      showNotification('Processing', 'Closing all positions...', 'success');
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < positions.length; i++) {
+        const pos = positions[i];
+        try {
+          const action = pos.quantity > 0 ? 'EXIT' : 'ENTRY_LONG';
+          const qty = Math.abs(pos.quantity);
+
+          const response = await fetch('/webhook/tradingview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              strategy: 'manual_bmnr',
+              action: action,
+              symbol: pos.symbol,
+              qty: qty,
+              orderType: 'MKT',
+              outsideRth: true
+            })
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.status === 'ok') {
+            successCount++;
+          } else {
+            failCount++;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 300));
+
+        } catch (error) {
+          failCount++;
+        }
+      }
+
+      showNotification(
+        'Complete',
+        'Closed ' + successCount + ' positions. ' + (failCount > 0 ? failCount + ' failed.' : ''),
+        failCount > 0 ? 'error' : 'success'
+      );
+
+      setTimeout(() => { fetchPositions(); fetchAccountSummary(); }, 1500);
+    }
+
+    // Flip Current Symbol (from main panel)
+    async function flipCurrentSymbol() {
+      const symbol = document.getElementById('symbol').value.toUpperCase().trim();
+      
+      if (!symbol) {
+        showNotification('Error', 'Please enter a symbol', 'error');
+        return;
+      }
+
+      const position = positions.find(p => p.symbol === symbol);
+      
+      if (!position) {
+        showNotification('Error', 'No open position for ' + symbol, 'error');
+        return;
+      }
+
+      await flipPosition(symbol, position.quantity);
+    }
+
     // Refresh Button
     document.getElementById('refreshBtn').addEventListener('click', () => {
       fetchPositions();
       fetchAccountSummary();
     });
+
+    // Flip Button
+    document.getElementById('flipBtn').addEventListener('click', flipCurrentSymbol);
+
+    // Close All Button
+    document.getElementById('closeAllBtn').addEventListener('click', closeAllPositions);
 
     // Auto-refresh every 10 seconds
     setInterval(() => {

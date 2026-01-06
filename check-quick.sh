@@ -29,15 +29,24 @@ fi
 
 # 2. IBKR Connected?
 echo -n "🔌 IBKR Gateway: "
-if ssh $VPS_USER@$VPS_HOST "pm2 logs trading-app --lines 50 --nostream 2>/dev/null | grep -q 'Connected to IBKR'" ; then
+IBKR_CHECK=$(ssh $VPS_USER@$VPS_HOST "pm2 logs trading-app --lines 100 --nostream 2>/dev/null | tail -100" || echo "")
+if echo "$IBKR_CHECK" | grep -q "Connected to IBKR"; then
+  echo -e "${GREEN}✅ Connected${NC}"
+elif echo "$IBKR_CHECK" | grep -q "IBKR Gateway connection established"; then
   echo -e "${GREEN}✅ Connected${NC}"
 else
-  echo -e "${RED}❌ Disconnected${NC}"
-  echo ""
-  echo "   💡 Fix: Connect via VNC and restart IB Gateway"
-  echo "      ssh -L 5901:localhost:5901 $VPS_USER@$VPS_HOST"
-  echo ""
-  exit 1
+  # Check if IB Gateway process is running
+  if ssh $VPS_USER@$VPS_HOST "ps aux | grep -q '[j]ava.*ibgateway' && lsof -ti:4002 > /dev/null 2>&1" 2>/dev/null; then
+    echo -e "${YELLOW}⚠️  Gateway running, app may be connecting...${NC}"
+  else
+    echo -e "${RED}❌ Disconnected${NC}"
+    echo ""
+    echo "   💡 Fix: Restart IB Gateway"
+    echo "      ssh root@$VPS_HOST"
+    echo "      bash /opt/trading-app/start-gateway.sh"
+    echo ""
+    exit 1
+  fi
 fi
 
 # 3. Open Positions
