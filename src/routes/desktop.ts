@@ -503,7 +503,7 @@ router.get("/", (req: Request, res: Response) => {
 
   <script>
     // Global State
-    let currentSymbol = 'AAPL';
+    let currentSymbol = 'DVLT';
     let tvWidget = null;
     let positions = [];
     let accountData = {
@@ -513,21 +513,39 @@ router.get("/", (req: Request, res: Response) => {
       totalPnL: 0
     };
 
-    // Initialize TradingView Chart with custom embedded chart
+    // Initialize TradingView Chart
     function initChart(symbol) {
       const container = document.getElementById('tradingview_chart');
       container.innerHTML = ''; // Clear existing content
       
-      // Create iframe for custom TradingView chart
-      const iframe = document.createElement('iframe');
-      iframe.src = 'https://www.tradingview.com/chart/DVLT/HE5LRwDK-This-is-a-test/';
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.border = 'none';
-      iframe.style.borderRadius = '8px';
-      iframe.allow = 'fullscreen';
-      
-      container.appendChild(iframe);
+      if (tvWidget) {
+        tvWidget.remove();
+      }
+
+      tvWidget = new TradingView.widget({
+        "width": "100%",
+        "height": "100%",
+        "symbol": "NASDAQ:" + symbol.toUpperCase(),
+        "interval": "5",
+        "timezone": "America/New_York",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#131722",
+        "enable_publishing": false,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_chart",
+        "studies": [
+          "Volume@tv-basicstudies"
+        ],
+        "overrides": {
+          "paneProperties.background": "#131722",
+          "paneProperties.backgroundType": "solid",
+          "paneProperties.vertGridProperties.color": "#1E222D",
+          "paneProperties.horzGridProperties.color": "#1E222D"
+        }
+      });
     }
 
     // Order Type Change Handler
