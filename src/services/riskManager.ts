@@ -30,8 +30,8 @@ class RiskManager {
         return symbol === momentumTicker;
 
       case "manual_bmnr":
-        // Manual strategy should NOT be automated
-        return false;
+        // Manual strategy uses global whitelist
+        return config.allowedSymbols.includes(symbol);
 
       default:
         // Fallback to global whitelist
