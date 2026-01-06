@@ -650,11 +650,26 @@ router.get("/", (req: Request, res: Response) => {
     };
 
     // Watchlist state
-    let watchlist = JSON.parse(localStorage.getItem('watchlist') || '["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "AMZN", "META", "SPY", "QQQ", "DVLT"]');
+    let watchlist = [];
+    try {
+      const saved = localStorage.getItem('watchlist');
+      if (saved) {
+        watchlist = JSON.parse(saved);
+      } else {
+        watchlist = ["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "AMZN", "META", "SPY", "QQQ", "DVLT"];
+      }
+    } catch (e) {
+      console.error('Error loading watchlist:', e);
+      watchlist = ["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "AMZN", "META", "SPY", "QQQ", "DVLT"];
+    }
     
     // Save watchlist to localStorage
     function saveWatchlist() {
-      localStorage.setItem('watchlist', JSON.stringify(watchlist));
+      try {
+        localStorage.setItem('watchlist', JSON.stringify(watchlist));
+      } catch (e) {
+        console.error('Error saving watchlist:', e);
+      }
     }
 
     // Add symbol to watchlist
@@ -675,7 +690,9 @@ router.get("/", (req: Request, res: Response) => {
     // Remove from watchlist
     function removeFromWatchlist(symbol) {
       if (confirm('Remove ' + symbol + ' from watchlist?')) {
-        watchlist = watchlist.filter(s => s !== symbol);
+        watchlist = watchlist.filter(function(s) {
+          return s !== symbol;
+        });
         saveWatchlist();
         renderWatchlist();
       }
@@ -686,14 +703,15 @@ router.get("/", (req: Request, res: Response) => {
       const search = document.getElementById('watchlistSearch').value.toUpperCase();
       const items = document.querySelectorAll('.watchlist-item');
       
-      items.forEach(item => {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         const symbol = item.dataset.symbol;
         if (symbol.includes(search)) {
           item.style.display = 'block';
         } else {
           item.style.display = 'none';
         }
-      });
+      }
     }
 
     // Select symbol from watchlist
@@ -703,11 +721,14 @@ router.get("/", (req: Request, res: Response) => {
       initChart(symbol);
       
       // Update active state
-      document.querySelectorAll('.watchlist-item').forEach(item => {
-        item.classList.remove('active');
-      });
+      const items = document.querySelectorAll('.watchlist-item');
+      for (let i = 0; i < items.length; i++) {
+        items[i].classList.remove('active');
+      }
       const activeItem = document.querySelector('[data-symbol="' + symbol + '"]');
-      if (activeItem) activeItem.classList.add('active');
+      if (activeItem) {
+        activeItem.classList.add('active');
+      }
     }
 
     // Render watchlist
@@ -719,19 +740,23 @@ router.get("/", (req: Request, res: Response) => {
         return;
       }
       
-      container.innerHTML = watchlist.map(symbol => 
-        '<div class="watchlist-item ' + (symbol === currentSymbol ? 'active' : '') + '" ' +
-             'data-symbol="' + symbol + '" ' +
-             'onclick="selectSymbol(\'' + symbol + '\')" ' +
-             'oncontextmenu="event.preventDefault(); removeFromWatchlist(\'' + symbol + '\');" ' +
-             'title="Left-click to select, Right-click to remove">' +
-          '<div class="watchlist-symbol">' + symbol + '</div>' +
-          '<div class="watchlist-price">' +
-            '<span class="price-value" id="price-' + symbol + '">--</span>' +
-            '<span class="watchlist-change" id="change-' + symbol + '">--</span>' +
-          '</div>' +
-        '</div>'
-      ).join('');
+      let html = '';
+      for (let i = 0; i < watchlist.length; i++) {
+        const symbol = watchlist[i];
+        const isActive = symbol === currentSymbol ? 'active' : '';
+        html += '<div class="watchlist-item ' + isActive + '" ' +
+                'data-symbol="' + symbol + '" ' +
+                'onclick="selectSymbol(\'' + symbol + '\')" ' +
+                'oncontextmenu="event.preventDefault(); removeFromWatchlist(\'' + symbol + '\');" ' +
+                'title="Left-click to select, Right-click to remove">' +
+                '<div class="watchlist-symbol">' + symbol + '</div>' +
+                '<div class="watchlist-price">' +
+                '<span class="price-value" id="price-' + symbol + '">--</span>' +
+                '<span class="watchlist-change" id="change-' + symbol + '">--</span>' +
+                '</div>' +
+                '</div>';
+      }
+      container.innerHTML = html;
     }
 
     // Initialize TradingView Chart
