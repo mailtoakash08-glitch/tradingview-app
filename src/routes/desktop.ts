@@ -736,16 +736,22 @@ router.get("/", (req: Request, res: Response) => {
 
     // Initialize TradingView Chart
     function initChart(symbol) {
+      console.log('initChart called with symbol:', symbol);
+      
       const container = document.getElementById('tradingview_chart');
       if (!container) {
         console.error('Chart container not found');
+        alert('Chart container not found! Please refresh the page.');
         return;
       }
+      
+      console.log('Container found:', container);
       
       // Remove existing widget first
       if (tvWidget) {
         try {
           tvWidget.remove();
+          console.log('Existing widget removed');
         } catch (e) {
           console.warn('Error removing widget:', e);
         }
@@ -763,30 +769,39 @@ router.get("/", (req: Request, res: Response) => {
         tvSymbol = 'NASDAQ:' + tvSymbol;
       }
 
-      tvWidget = new TradingView.widget({
-        "width": "100%",
-        "height": "100%",
-        "symbol": tvSymbol,
-        "interval": "5",
-        "timezone": "America/New_York",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "toolbar_bg": "#131722",
-        "enable_publishing": false,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "container_id": "tradingview_chart",
-        "studies": [
-          "Volume@tv-basicstudies"
-        ],
-        "overrides": {
-          "paneProperties.background": "#131722",
-          "paneProperties.backgroundType": "solid",
-          "paneProperties.vertGridProperties.color": "#1E222D",
-          "paneProperties.horzGridProperties.color": "#1E222D"
-        }
-      });
+      console.log('Creating TradingView widget for:', tvSymbol);
+
+      try {
+        tvWidget = new TradingView.widget({
+          "width": "100%",
+          "height": "100%",
+          "symbol": tvSymbol,
+          "interval": "5",
+          "timezone": "America/New_York",
+          "theme": "dark",
+          "style": "1",
+          "locale": "en",
+          "toolbar_bg": "#131722",
+          "enable_publishing": false,
+          "hide_side_toolbar": false,
+          "allow_symbol_change": true,
+          "container_id": "tradingview_chart",
+          "studies": [
+            "Volume@tv-basicstudies"
+          ],
+          "overrides": {
+            "paneProperties.background": "#131722",
+            "paneProperties.backgroundType": "solid",
+            "paneProperties.vertGridProperties.color": "#1E222D",
+            "paneProperties.horzGridProperties.color": "#1E222D"
+          }
+        });
+        
+        console.log('TradingView widget created successfully');
+      } catch (error) {
+        console.error('Error creating TradingView widget:', error);
+        alert('Error loading chart. Please refresh the page.');
+      }
     }
 
     // Order Type Change Handler
@@ -1017,20 +1032,32 @@ router.get("/", (req: Request, res: Response) => {
     }, 10000);
 
     // Initialize on page load - wait for TradingView library
+    console.log('Page loaded, checking for TradingView library...');
+    
     if (typeof TradingView !== 'undefined') {
+      console.log('TradingView library found immediately');
+      renderWatchlist();
       initChart(currentSymbol);
     } else {
+      console.log('Waiting for TradingView library to load...');
       // Wait for TradingView library to load
       const checkTradingView = setInterval(() => {
         if (typeof TradingView !== 'undefined') {
+          console.log('TradingView library loaded!');
           clearInterval(checkTradingView);
+          renderWatchlist();
           initChart(currentSymbol);
         }
       }, 100);
+      
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        if (typeof TradingView === 'undefined') {
+          console.error('TradingView library failed to load after 10 seconds');
+          alert('Chart library failed to load. Please check your internet connection and refresh.');
+        }
+      }, 10000);
     }
-    
-    // Initialize watchlist
-    renderWatchlist();
     
     fetchPositions();
     fetchAccountSummary();
