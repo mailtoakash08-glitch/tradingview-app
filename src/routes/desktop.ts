@@ -674,7 +674,7 @@ router.get("/", (req: Request, res: Response) => {
 
     // Remove from watchlist
     function removeFromWatchlist(symbol) {
-      if (confirm(`Remove ${symbol} from watchlist?`)) {
+      if (confirm('Remove ' + symbol + ' from watchlist?')) {
         watchlist = watchlist.filter(s => s !== symbol);
         saveWatchlist();
         renderWatchlist();
@@ -706,7 +706,8 @@ router.get("/", (req: Request, res: Response) => {
       document.querySelectorAll('.watchlist-item').forEach(item => {
         item.classList.remove('active');
       });
-      document.querySelector(`[data-symbol="${symbol}"]`).classList.add('active');
+      const activeItem = document.querySelector('[data-symbol="' + symbol + '"]');
+      if (activeItem) activeItem.classList.add('active');
     }
 
     // Render watchlist
@@ -718,19 +719,19 @@ router.get("/", (req: Request, res: Response) => {
         return;
       }
       
-      container.innerHTML = watchlist.map(symbol => `
-        <div class="watchlist-item ${symbol === currentSymbol ? 'active' : ''}" 
-             data-symbol="${symbol}"
-             onclick="selectSymbol('${symbol}')"
-             oncontextmenu="event.preventDefault(); removeFromWatchlist('${symbol}');"
-             title="Left-click to select, Right-click to remove">
-          <div class="watchlist-symbol">${symbol}</div>
-          <div class="watchlist-price">
-            <span class="price-value" id="price-${symbol}">--</span>
-            <span class="watchlist-change" id="change-${symbol}">--</span>
-          </div>
-        </div>
-      `).join('');
+      container.innerHTML = watchlist.map(symbol => 
+        '<div class="watchlist-item ' + (symbol === currentSymbol ? 'active' : '') + '" ' +
+             'data-symbol="' + symbol + '" ' +
+             'onclick="selectSymbol(\'' + symbol + '\')" ' +
+             'oncontextmenu="event.preventDefault(); removeFromWatchlist(\'' + symbol + '\');" ' +
+             'title="Left-click to select, Right-click to remove">' +
+          '<div class="watchlist-symbol">' + symbol + '</div>' +
+          '<div class="watchlist-price">' +
+            '<span class="price-value" id="price-' + symbol + '">--</span>' +
+            '<span class="watchlist-change" id="change-' + symbol + '">--</span>' +
+          '</div>' +
+        '</div>'
+      ).join('');
     }
 
     // Initialize TradingView Chart
