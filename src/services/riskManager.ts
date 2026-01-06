@@ -3,33 +3,36 @@
  * Implements symbol whitelist, trade limits, strategy-specific rules, and kill-switch
  */
 
-import { TradeSignal, RiskCheckResult } from '../types/order';
-import { StrategyName } from '../types/tradingView';
-import config from '../config';
-import { stateStore } from './stateStore';
-import { logger } from '../logger';
+import { TradeSignal, RiskCheckResult } from "../types/order";
+import { StrategyName } from "../types/tradingView";
+import config from "../config";
+import { stateStore } from "./stateStore";
+import { logger } from "../logger";
 
 class RiskManager {
   /**
    * Check if a symbol is allowed for a specific strategy
    */
-  private isSymbolAllowedForStrategy(symbol: string, strategy: StrategyName): boolean {
+  private isSymbolAllowedForStrategy(
+    symbol: string,
+    strategy: StrategyName
+  ): boolean {
     switch (strategy) {
-      case 'bread_and_butter':
+      case "bread_and_butter":
         return config.strategies.breadAndButter.symbols.includes(symbol);
-      
-      case 'momentum':
+
+      case "momentum":
         // Momentum strategy requires daily ticker to be set
         const momentumTicker = stateStore.getMomentumDailyTicker();
         if (!momentumTicker) {
           return false; // No ticker set yet
         }
         return symbol === momentumTicker;
-      
-      case 'manual_bmnr':
+
+      case "manual_bmnr":
         // Manual strategy should NOT be automated
         return false;
-      
+
       default:
         // Fallback to global whitelist
         return config.allowedSymbols.includes(symbol);
@@ -41,11 +44,11 @@ class RiskManager {
    */
   private isStrategyEnabled(strategy: StrategyName): boolean {
     switch (strategy) {
-      case 'bread_and_butter':
+      case "bread_and_butter":
         return config.strategies.breadAndButter.enabled;
-      case 'momentum':
+      case "momentum":
         return config.strategies.momentum.enabled;
-      case 'manual_bmnr':
+      case "manual_bmnr":
         return config.strategies.manualBmnr.enabled;
       default:
         return false;
@@ -57,11 +60,11 @@ class RiskManager {
    */
   private isWithinStrategyTradeLimit(strategy: StrategyName): boolean {
     const currentCount = stateStore.getStrategyTradeCount(strategy);
-    
+
     switch (strategy) {
-      case 'bread_and_butter':
+      case "bread_and_butter":
         return currentCount < config.strategies.breadAndButter.maxTradesPerDay;
-      case 'momentum':
+      case "momentum":
         return currentCount < config.strategies.momentum.maxTradesPerDay;
       default:
         return true;
@@ -81,11 +84,12 @@ class RiskManager {
    */
   private checkMomentumRequirements(signal: TradeSignal): RiskCheckResult {
     const momentumTicker = stateStore.getMomentumDailyTicker();
-    
+
     if (!momentumTicker) {
       return {
         allowed: false,
-        reason: 'Momentum strategy requires daily ticker to be set first. Use /admin/momentum/set-ticker endpoint.',
+        reason:
+          "Momentum strategy requires daily ticker to be set first. Use /admin/momentum/set-ticker endpoint.",
       };
     }
 
@@ -108,7 +112,10 @@ class RiskManager {
     }
 
     const errorCount = stateStore.getConsecutiveErrors();
-    if (errorCount >= config.maxConsecutiveErrors && !stateStore.isAutoStopTriggered()) {
+    if (
+      errorCount >= config.maxConsecutiveErrors &&
+      !stateStore.isAutoStopTriggered()
+    ) {
       stateStore.triggerAutoStop();
     }
   }
@@ -117,53 +124,45 @@ class RiskManager {
    * Perform all risk checks on a trade signal
    */
   checkSignalAllowed(signal: TradeSignal): RiskCheckResult {
-    logger.info('Running risk checks', { 
-      symbol: signal.symbol, 
+    logger.info("Running risk checks", {
+      symbol: signal.symbol,
       action: signal.action,
-      strategy: signal.strategy 
+      strategy: signal.strategy,
     });
 
     // Check auto-stop status
     if (stateStore.isAutoStopTriggered()) {
       return {
         allowed: false,
-        reason: 'Auto-stop triggered due to consecutive errors. Manual reset required via /admin/reset-auto-stop',
+        reason:
+          "Auto-stop triggered due to consecutive errors. Manual reset required via /admin/reset-auto-stop",
       };
     }
 
     // Check kill-switch
     if (stateStore.isKillSwitchOn()) {
-      logger.warn('Trade blocked by kill-switch', { signal });
+      logger.warn("Trade blocked by kill-switch", { signal });
       return {
         allowed: false,
-        reason: 'Kill-switch is enabled - all trading is disabled',
+        reason: "Kill-switch is enabled - all trading is disabled",
       };
     }
 
     // Check if strategy is enabled
     if (!this.isStrategyEnabled(signal.strategy)) {
-      logger.warn('Strategy not enabled', { strategy: signal.strategy });
+      logger.warn("Strategy not enabled", { strategy: signal.strategy });
       return {
         allowed: false,
         reason: `Strategy "${signal.strategy}" is not enabled`,
       };
     }
 
-    // Special check for manual BMNR strategy
-    if (signal.strategy === 'manual_bmnr') {
-      logger.warn('Manual BMNR strategy should not be automated', { signal });
-      return {
-        allowed: false,
-        reason: 'Manual BMNR strategy is for manual trading only - automation not allowed',
-      };
-    }
-
     // Check momentum strategy requirements
-    if (signal.strategy === 'momentum') {
+    if (signal.strategy === "momentum") {
       const momentumCheck = this.checkMomentumRequirements(signal);
       if (!momentumCheck.allowed) {
-        logger.warn('Momentum strategy requirements not met', { 
-          reason: momentumCheck.reason 
+        logger.warn("Momentum strategy requirements not met", {
+          reason: momentumCheck.reason,
         });
         return momentumCheck;
       }
@@ -171,19 +170,19 @@ class RiskManager {
 
     // Check symbol whitelist for strategy
     if (!this.isSymbolAllowedForStrategy(signal.symbol, signal.strategy)) {
-      logger.warn('Symbol not allowed for strategy', { 
+      logger.warn("Symbol not allowed for strategy", {
         symbol: signal.symbol,
-        strategy: signal.strategy 
+        strategy: signal.strategy,
       });
-      
-      if (signal.strategy === 'momentum') {
+
+      if (signal.strategy === "momentum") {
         const ticker = stateStore.getMomentumDailyTicker();
         return {
           allowed: false,
           reason: `Momentum strategy only allows ${ticker} today. Received: ${signal.symbol}`,
         };
       }
-      
+
       return {
         allowed: false,
         reason: `Symbol ${signal.symbol} is not allowed for ${signal.strategy} strategy`,
@@ -193,7 +192,7 @@ class RiskManager {
     // Check strategy trade limits
     if (!this.isWithinStrategyTradeLimit(signal.strategy)) {
       const currentCount = stateStore.getStrategyTradeCount(signal.strategy);
-      logger.warn('Strategy trade limit exceeded', {
+      logger.warn("Strategy trade limit exceeded", {
         strategy: signal.strategy,
         currentCount,
       });
@@ -206,7 +205,7 @@ class RiskManager {
     // Check symbol trade limits
     if (!this.isWithinSymbolTradeLimit(signal.symbol)) {
       const currentCount = stateStore.getTradeCount(signal.symbol);
-      logger.warn('Symbol trade limit exceeded', {
+      logger.warn("Symbol trade limit exceeded", {
         symbol: signal.symbol,
         currentCount,
         maxAllowed: config.maxTradesPerSymbolPerDay,
@@ -217,9 +216,9 @@ class RiskManager {
       };
     }
 
-    logger.info('Risk checks passed', { 
+    logger.info("Risk checks passed", {
       symbol: signal.symbol,
-      strategy: signal.strategy 
+      strategy: signal.strategy,
     });
     return { allowed: true };
   }
@@ -239,8 +238,8 @@ class RiskManager {
   recordFailure(signal: TradeSignal, error: any): void {
     stateStore.recordError();
     this.checkAutoStop();
-    
-    logger.error('Order failure recorded', {
+
+    logger.error("Order failure recorded", {
       symbol: signal.symbol,
       strategy: signal.strategy,
       error: error.message || error,
