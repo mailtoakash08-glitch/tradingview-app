@@ -516,16 +516,36 @@ router.get("/", (req: Request, res: Response) => {
     // Initialize TradingView Chart
     function initChart(symbol) {
       const container = document.getElementById('tradingview_chart');
-      container.innerHTML = ''; // Clear existing content
+      if (!container) {
+        console.error('Chart container not found');
+        return;
+      }
       
+      // Remove existing widget first
       if (tvWidget) {
-        tvWidget.remove();
+        try {
+          tvWidget.remove();
+        } catch (e) {
+          console.warn('Error removing widget:', e);
+        }
+        tvWidget = null;
+      }
+      
+      // Clear container after removing widget
+      container.innerHTML = '';
+
+      // Map common symbols to TradingView format
+      let tvSymbol = symbol.toUpperCase();
+      
+      // Default exchange for most stocks
+      if (!tvSymbol.includes(':')) {
+        tvSymbol = 'NASDAQ:' + tvSymbol;
       }
 
       tvWidget = new TradingView.widget({
         "width": "100%",
         "height": "100%",
-        "symbol": "NASDAQ:" + symbol.toUpperCase(),
+        "symbol": tvSymbol,
         "interval": "5",
         "timezone": "America/New_York",
         "theme": "dark",
@@ -775,8 +795,19 @@ router.get("/", (req: Request, res: Response) => {
       fetchAccountSummary();
     }, 10000);
 
-    // Initialize on page load
-    initChart(currentSymbol);
+    // Initialize on page load - wait for TradingView library
+    if (typeof TradingView !== 'undefined') {
+      initChart(currentSymbol);
+    } else {
+      // Wait for TradingView library to load
+      const checkTradingView = setInterval(() => {
+        if (typeof TradingView !== 'undefined') {
+          clearInterval(checkTradingView);
+          initChart(currentSymbol);
+        }
+      }, 100);
+    }
+    
     fetchPositions();
     fetchAccountSummary();
   </script>
