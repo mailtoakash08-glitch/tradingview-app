@@ -24,12 +24,14 @@ class IbkrClient {
   private connected: boolean;
   private nextOrderId: number;
   private connectionPromise: Promise<void> | null;
+  private orderIdMap: Map<number, string>; // IBKR orderId -> trackedOrderId
 
   constructor() {
     this.ib = null;
     this.connected = false;
     this.nextOrderId = 1;
     this.connectionPromise = null;
+    this.orderIdMap = new Map();
   }
 
   /**
@@ -85,12 +87,16 @@ class IbkrClient {
           avgFillPrice,
         });
 
-        // Update order tracker based on status
-        const orderIdStr = `ORD-${orderId}`;
+        // Map IBKR orderId to our trackedOrderId
+        const trackedOrderId = this.orderIdMap.get(orderId);
+        if (!trackedOrderId) {
+          logger.warn("Order ID not found in mapping", { orderId });
+          return;
+        }
 
         // Update order status
         orderTracker.updateOrderStatus(
-          orderIdStr,
+          trackedOrderId,
           status,
           filled,
           avgFillPrice
@@ -98,7 +104,8 @@ class IbkrClient {
 
         if (status === "Filled" || status === "PartiallyFilled") {
           logger.info("Order filled - updating position", {
-            orderId: orderIdStr,
+            orderId,
+            trackedOrderId,
             status,
             avgFillPrice,
             filled,
@@ -106,11 +113,11 @@ class IbkrClient {
           });
 
           // Get order details from tracker
-          const orderDetails = orderTracker.getOrderById(orderIdStr);
+          const orderDetails = orderTracker.getOrderById(trackedOrderId);
           if (orderDetails && filled > 0 && avgFillPrice > 0) {
             // Update position via handleOrderFill
             positionManager.handleOrderFill({
-              orderId: orderIdStr,
+              orderId: trackedOrderId,
               symbol: orderDetails.symbol,
               action: orderDetails.action,
               quantity: filled,
@@ -127,7 +134,7 @@ class IbkrClient {
             });
           }
         } else if (status === "Cancelled") {
-          logger.info("Order cancelled", { orderId: orderIdStr });
+          logger.info("Order cancelled", { orderId, trackedOrderId });
         }
       }
     );
@@ -335,6 +342,9 @@ class IbkrClient {
         trailingAmount: request.trailingAmount,
         strategy: request.metadata?.strategy,
       });
+
+      // Store mapping from IBKR orderId to our trackedOrderId
+      this.orderIdMap.set(orderId, trackedOrderId);
 
       // Place order
       this.ib.placeOrder(orderId, contract, order);
