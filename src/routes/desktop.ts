@@ -505,7 +505,7 @@ router.get("/", (req: Request, res: Response) => {
     <div class="watchlist-panel">
       <div class="watchlist-header">
         <span>📋 Watchlist</span>
-        <button class="watchlist-add-btn" onclick="addToWatchlist()" title="Add Symbol">+</button>
+        <button class="watchlist-add-btn" id="addWatchlistBtn" title="Add Symbol">+</button>
       </div>
       
       <input 
@@ -513,7 +513,6 @@ router.get("/", (req: Request, res: Response) => {
         class="watchlist-search" 
         id="watchlistSearch"
         placeholder="Search symbols..."
-        onkeyup="filterWatchlist()"
       />
       
       <div class="watchlist-items" id="watchlistItems">
@@ -744,19 +743,33 @@ router.get("/", (req: Request, res: Response) => {
       for (let i = 0; i < watchlist.length; i++) {
         const symbol = watchlist[i];
         const isActive = symbol === currentSymbol ? 'active' : '';
-        html += '<div class="watchlist-item ' + isActive + '" ' +
-                'data-symbol="' + symbol + '" ' +
-                'onclick="selectSymbol(\'' + symbol + '\')" ' +
-                'oncontextmenu="event.preventDefault(); removeFromWatchlist(\'' + symbol + '\');" ' +
-                'title="Left-click to select, Right-click to remove">' +
-                '<div class="watchlist-symbol">' + symbol + '</div>' +
-                '<div class="watchlist-price">' +
-                '<span class="price-value" id="price-' + symbol + '">--</span>' +
-                '<span class="watchlist-change" id="change-' + symbol + '">--</span>' +
-                '</div>' +
-                '</div>';
+        html += '<div class="watchlist-item ' + isActive + '" data-symbol="' + symbol + '" title="Left-click to select, Right-click to remove">';
+        html += '<div class="watchlist-symbol">' + symbol + '</div>';
+        html += '<div class="watchlist-price">';
+        html += '<span class="price-value" id="price-' + symbol + '">--</span>';
+        html += '<span class="watchlist-change" id="change-' + symbol + '">--</span>';
+        html += '</div>';
+        html += '</div>';
       }
       container.innerHTML = html;
+      
+      // Attach click handlers after rendering
+      const items = container.querySelectorAll('.watchlist-item');
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const symbol = item.getAttribute('data-symbol');
+        
+        // Left click - select symbol
+        item.addEventListener('click', function() {
+          selectSymbol(symbol);
+        });
+        
+        // Right click - remove symbol
+        item.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          removeFromWatchlist(symbol);
+        });
+      }
     }
 
     // Initialize TradingView Chart
@@ -1058,6 +1071,10 @@ router.get("/", (req: Request, res: Response) => {
 
     // Initialize on page load - wait for TradingView library
     console.log('Page loaded, checking for TradingView library...');
+    
+    // Attach watchlist button and search handlers
+    document.getElementById('addWatchlistBtn').addEventListener('click', addToWatchlist);
+    document.getElementById('watchlistSearch').addEventListener('keyup', filterWatchlist);
     
     if (typeof TradingView !== 'undefined') {
       console.log('TradingView library found immediately');
