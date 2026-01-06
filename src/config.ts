@@ -80,7 +80,7 @@ const config: Config = {
       maxTradesPerDay: parseInt(process.env.MOMENTUM_MAX_TRADES || "20", 10),
     },
     manualBmnr: {
-      enabled: false, // Always false - manual trading only
+      enabled: true, // Manual trading via desktop interface
     },
   },
 

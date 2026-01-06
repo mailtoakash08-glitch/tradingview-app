@@ -10,6 +10,7 @@ cd /Users/dev/Documents/tradingview
 ```
 
 This automatically:
+
 - ✅ Commits all your changes
 - ✅ Pushes to GitHub
 - ✅ Deploys to VPS
@@ -80,16 +81,19 @@ lsof -i -P | grep java | grep LISTEN
 ## 🛠️ Useful Commands
 
 ### Check App Status
+
 ```bash
 ssh root@165.227.104.40 "pm2 logs trading-app --lines 20"
 ```
 
 ### Check IB Gateway Connection
+
 ```bash
 ssh root@165.227.104.40 "pm2 logs trading-app | grep -i 'connect\|ibkr'"
 ```
 
 ### Restart App Only
+
 ```bash
 ssh root@165.227.104.40 "pm2 restart trading-app"
 ```
@@ -99,14 +103,17 @@ ssh root@165.227.104.40 "pm2 restart trading-app"
 ## 🚨 Troubleshooting
 
 ### If Orders Fail:
+
 1. Check IB Gateway is running: `ps aux | grep gateway`
 2. Check port 4002 is listening: `lsof -i -P | grep 4002`
 3. Check app logs: `pm2 logs trading-app --lines 30`
 
 ### If "Invalid Strategy" Error:
+
 - Already fixed! ✅ Now using `manual_bmnr`
 
 ### If API Connection Refused:
+
 - Run `fix-ibgateway.sh` on VPS
 - Restart IB Gateway
 - Verify port 4002 is listening
@@ -116,7 +123,7 @@ ssh root@165.227.104.40 "pm2 restart trading-app"
 ## 📞 Next Steps
 
 1. **Run `./deploy-commit.sh`** to deploy all fixes ✅
-2. **SSH into VPS** and run `fix-ibgateway.sh` 
+2. **SSH into VPS** and run `fix-ibgateway.sh`
 3. **Restart IB Gateway**
 4. **Verify port 4002** is listening
 5. **Test trading** with DVLT
@@ -124,4 +131,3 @@ ssh root@165.227.104.40 "pm2 restart trading-app"
 ---
 
 **Everything is now set up for easy deployment!** 🎉
-
