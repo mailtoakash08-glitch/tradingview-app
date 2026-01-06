@@ -569,6 +569,43 @@ router.get("/", (req: Request, res: Response) => {
       background: #FF9800;
       color: #fff;
     }
+
+    /* Position Markers on Chart */
+    .position-marker {
+      position: absolute;
+      right: 20px;
+      background: rgba(26, 26, 26, 0.95);
+      border: 1px solid #2A2E39;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      color: #D1D4DC;
+      z-index: 1000;
+      min-width: 200px;
+      backdrop-filter: blur(10px);
+    }
+
+    .position-marker-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #fff;
+      font-size: 13px;
+    }
+
+    .position-marker-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 4px 0;
+      font-size: 11px;
+    }
+
+    .position-marker-long {
+      border-left: 3px solid #089981;
+    }
+
+    .position-marker-short {
+      border-left: 3px solid #F23645;
+    }
   </style>
 </head>
 <body>
@@ -601,6 +638,35 @@ router.get("/", (req: Request, res: Response) => {
     <!-- Chart Section -->
     <div class="chart-section">
       <div id="tradingview_chart"></div>
+      
+      <!-- Position Marker Overlay -->
+      <div id="positionMarker" class="position-marker" style="display:none; top: 20px;">
+        <div class="position-marker-title">📍 Active Position</div>
+        <div class="position-marker-item">
+          <span>Symbol:</span>
+          <span id="markerSymbol">-</span>
+        </div>
+        <div class="position-marker-item">
+          <span>Type:</span>
+          <span id="markerType">-</span>
+        </div>
+        <div class="position-marker-item">
+          <span>Qty:</span>
+          <span id="markerQty">-</span>
+        </div>
+        <div class="position-marker-item">
+          <span>Entry:</span>
+          <span id="markerEntry">-</span>
+        </div>
+        <div class="position-marker-item">
+          <span>Current:</span>
+          <span id="markerCurrent">-</span>
+        </div>
+        <div class="position-marker-item">
+          <span>P&L:</span>
+          <span id="markerPnL" style="font-weight: 600;">-</span>
+        </div>
+      </div>
     </div>
 
     <!-- Trading Panel -->
@@ -651,6 +717,27 @@ router.get("/", (req: Request, res: Response) => {
         <div class="form-group">
           <label>Stop Loss ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
           <input type="number" id="stopLoss" step="0.01" placeholder="Leave empty to skip" />
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="bracketOrder" />
+          <label for="bracketOrder">🎯 Bracket Order (Auto TP/SL based on risk %)</label>
+        </div>
+
+        <div id="bracketSettings" style="display:none; margin-top: 8px; padding: 12px; background: #1E222D; border-radius: 6px;">
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label style="font-size: 12px;">Risk/Reward Ratio</label>
+            <select id="bracketRatio" style="font-size: 12px;">
+              <option value="1:1">1:1 (Conservative)</option>
+              <option value="1:2" selected>1:2 (Balanced)</option>
+              <option value="1:3">1:3 (Aggressive)</option>
+              <option value="2:3">2:3 (Custom)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 12px;">Risk Amount ($)</label>
+            <input type="number" id="bracketRiskAmount" step="0.01" placeholder="5.00" style="font-size: 12px;" value="5" />
+          </div>
         </div>
 
         <div class="checkbox-group">
@@ -954,6 +1041,27 @@ router.get("/", (req: Request, res: Response) => {
       }
     });
 
+    // Bracket Order Toggle Handler
+    document.getElementById('bracketOrder').addEventListener('change', function() {
+      const bracketSettings = document.getElementById('bracketSettings');
+      const takeProfitInput = document.getElementById('takeProfit');
+      const stopLossInput = document.getElementById('stopLoss');
+      
+      if (this.checked) {
+        bracketSettings.style.display = 'block';
+        takeProfitInput.disabled = true;
+        stopLossInput.disabled = true;
+        takeProfitInput.style.opacity = '0.5';
+        stopLossInput.style.opacity = '0.5';
+      } else {
+        bracketSettings.style.display = 'none';
+        takeProfitInput.disabled = false;
+        stopLossInput.disabled = false;
+        takeProfitInput.style.opacity = '1';
+        stopLossInput.style.opacity = '1';
+      }
+    });
+
     // Symbol Input Change - Update Chart
     document.getElementById('symbol').addEventListener('change', function() {
       const symbol = this.value.toUpperCase().trim();
@@ -1009,16 +1117,47 @@ router.get("/", (req: Request, res: Response) => {
         payload.trailingAmount = trailingAmount;
       }
 
-      // Add Take Profit and Stop Loss (optional)
-      const takeProfit = parseFloat(document.getElementById('takeProfit').value);
-      const stopLoss = parseFloat(document.getElementById('stopLoss').value);
+      // Add Take Profit and Stop Loss (optional or bracket)
+      const bracketOrderEnabled = document.getElementById('bracketOrder').checked;
       
-      if (takeProfit && takeProfit > 0) {
-        payload.takeProfit = takeProfit;
-      }
-      
-      if (stopLoss && stopLoss > 0) {
-        payload.stopLoss = stopLoss;
+      if (bracketOrderEnabled) {
+        // Get current market price (rough estimate - in production, fetch real-time quote)
+        const bracketRatio = document.getElementById('bracketRatio').value;
+        const riskAmount = parseFloat(document.getElementById('bracketRiskAmount').value) || 5;
+        
+        // Parse risk:reward ratio
+        const [risk, reward] = bracketRatio.split(':').map(Number);
+        const rewardAmount = (riskAmount / risk) * reward;
+        
+        // For bracket orders, we need entry price
+        // Since this is a market order, we'll estimate based on current positions or last price
+        // For now, let's use a placeholder - in production you'd get real-time quote
+        showNotification('Info', \`Bracket order: Risk $\${riskAmount}, Reward $\${rewardAmount.toFixed(2)} (ratio \${bracketRatio})\`, 'success');
+        
+        // Calculate TP/SL based on action
+        if (action === 'BUY') {
+          // For long: SL below entry, TP above entry
+          payload.stopLoss = -riskAmount; // Relative to entry
+          payload.takeProfit = rewardAmount; // Relative to entry
+        } else {
+          // For short: SL above entry, TP below entry
+          payload.stopLoss = riskAmount; // Relative to entry
+          payload.takeProfit = -rewardAmount; // Relative to entry
+        }
+        
+        payload.bracketOrder = true;
+      } else {
+        // Manual TP/SL
+        const takeProfit = parseFloat(document.getElementById('takeProfit').value);
+        const stopLoss = parseFloat(document.getElementById('stopLoss').value);
+        
+        if (takeProfit && takeProfit > 0) {
+          payload.takeProfit = takeProfit;
+        }
+        
+        if (stopLoss && stopLoss > 0) {
+          payload.stopLoss = stopLoss;
+        }
       }
 
       try {
@@ -1089,8 +1228,13 @@ router.get("/", (req: Request, res: Response) => {
       
       if (positions.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No open positions</td></tr>';
+        updatePositionMarker(null); // Hide marker
         return;
       }
+
+      // Update position marker with current symbol's position
+      const currentSymbolPosition = positions.find(p => p.symbol === currentSymbol);
+      updatePositionMarker(currentSymbolPosition);
 
       tbody.innerHTML = positions.map(pos => {
         const pnl = pos.unrealizedPnL || 0;
@@ -1121,6 +1265,39 @@ router.get("/", (req: Request, res: Response) => {
           </tr>
         \`;
       }).join('');
+    }
+
+    // Update Position Marker Overlay
+    function updatePositionMarker(position) {
+      const marker = document.getElementById('positionMarker');
+      
+      if (!position) {
+        marker.style.display = 'none';
+        return;
+      }
+
+      const pnl = position.unrealizedPnL || 0;
+      const pnlPercent = position.avgPrice > 0 ? 
+        ((position.currentPrice - position.avgPrice) / position.avgPrice * 100) : 0;
+      const positionType = position.quantity > 0 ? 'LONG' : 'SHORT';
+      const absQuantity = Math.abs(position.quantity);
+
+      // Update marker content
+      document.getElementById('markerSymbol').textContent = position.symbol;
+      document.getElementById('markerType').textContent = positionType;
+      document.getElementById('markerQty').textContent = absQuantity;
+      document.getElementById('markerEntry').textContent = '$' + position.avgPrice.toFixed(2);
+      document.getElementById('markerCurrent').textContent = '$' + position.currentPrice.toFixed(2);
+      
+      const pnlElement = document.getElementById('markerPnL');
+      pnlElement.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + 
+        ' (' + (pnlPercent >= 0 ? '+' : '') + pnlPercent.toFixed(2) + '%)';
+      pnlElement.style.color = pnl >= 0 ? '#089981' : '#F23645';
+
+      // Update marker border color
+      marker.className = 'position-marker ' + 
+        (positionType === 'LONG' ? 'position-marker-long' : 'position-marker-short');
+      marker.style.display = 'block';
     }
 
     // Update Account Summary
