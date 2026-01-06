@@ -1,10 +1,10 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response } from "express";
 
 const router = Router();
 
 /**
  * TradingView Desktop-Style Trading Interface
- * 
+ *
  * Features:
  * - Real-time TradingView charts
  * - Manual order entry (Market, Limit, Stop Market)
@@ -14,7 +14,7 @@ const router = Router();
  * - Windows-style dark UI
  */
 
-router.get('/', (req: Request, res: Response) => {
+router.get("/", (req: Request, res: Response) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="en">
@@ -513,38 +513,21 @@ router.get('/', (req: Request, res: Response) => {
       totalPnL: 0
     };
 
-    // Initialize TradingView Chart
+    // Initialize TradingView Chart with custom embedded chart
     function initChart(symbol) {
       const container = document.getElementById('tradingview_chart');
+      container.innerHTML = ''; // Clear existing content
       
-      if (tvWidget) {
-        tvWidget.remove();
-      }
-
-      tvWidget = new TradingView.widget({
-        "width": "100%",
-        "height": "100%",
-        "symbol": "NASDAQ:" + symbol.toUpperCase(),
-        "interval": "5",
-        "timezone": "America/New_York",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "toolbar_bg": "#131722",
-        "enable_publishing": false,
-        "hide_side_toolbar": false,
-        "allow_symbol_change": true,
-        "container_id": "tradingview_chart",
-        "studies": [
-          "Volume@tv-basicstudies"
-        ],
-        "overrides": {
-          "paneProperties.background": "#131722",
-          "paneProperties.backgroundType": "solid",
-          "paneProperties.vertGridProperties.color": "#1E222D",
-          "paneProperties.horzGridProperties.color": "#1E222D"
-        }
-      });
+      // Create iframe for custom TradingView chart
+      const iframe = document.createElement('iframe');
+      iframe.src = 'https://www.tradingview.com/chart/DVLT/HE5LRwDK-This-is-a-test/';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      iframe.style.borderRadius = '8px';
+      iframe.allow = 'fullscreen';
+      
+      container.appendChild(iframe);
     }
 
     // Order Type Change Handler
@@ -785,4 +768,3 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 export default router;
-
