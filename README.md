@@ -20,7 +20,7 @@
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - Interactive Brokers account
 - IB Gateway or TWS running
 
@@ -46,6 +46,67 @@ npm start
 ### Access
 
 Open browser: `http://localhost:3000/desktop`
+
+## 🔍 Daily Health Checks
+
+### Quick Status Check (Recommended for Daily Use)
+
+```bash
+./check-quick.sh
+```
+
+**Output:**
+
+```
+⚡ QUICK STATUS CHECK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 Trading App: ✅ Running
+🔌 IBKR Gateway: ✅ Connected
+💼 Positions: 2 open
+💰 Account: $50000.00 (P&L: $125.50)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ System Ready for Trading!
+```
+
+### Detailed Status Check
+
+```bash
+./check-vps-status.sh
+```
+
+Shows:
+
+- VPS connectivity
+- App status (PM2)
+- IBKR Gateway connection
+- Open positions with P&L
+- Account summary
+- Last order details
+- Recent errors
+
+### Morning Routine (Before Trading)
+
+1. **Run quick check:**
+
+   ```bash
+   ./check-quick.sh
+   ```
+
+2. **If IB Gateway disconnected:**
+
+   ```bash
+   # Connect via VNC
+   ssh -L 5901:localhost:5901 root@165.227.104.40
+
+   # Open VNC Viewer → localhost:5901
+   # Start IB Gateway from desktop
+   # Login with credentials
+   ```
+
+3. **Test order placement:**
+   - Open: `http://165.227.104.40:3000/desktop`
+   - Place small test order (1 share)
+   - Verify fill in positions table
 
 ## 📦 Project Structure
 
@@ -77,12 +138,12 @@ tradingview-app/
 
 Choose the correct port for your setup:
 
-| Application | Environment | Port |
-|-------------|-------------|------|
+| Application    | Environment   | Port                                  |
+| -------------- | ------------- | ------------------------------------- |
 | **IB Gateway** | Paper Trading | **4002** ⭐ (Recommended for testing) |
-| **IB Gateway** | Live Trading | **4001** |
-| **TWS** | Paper Trading | **7497** |
-| **TWS** | Live Trading | **7496** |
+| **IB Gateway** | Live Trading  | **4001**                              |
+| **TWS**        | Paper Trading | **7497**                              |
+| **TWS**        | Live Trading  | **7496**                              |
 
 ### Setup Environment
 
@@ -112,14 +173,14 @@ DEFAULT_QTY=100
 
 ## 🌐 API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/desktop` | GET | Trading interface |
-| `/api/dashboard/positions` | GET | Get positions |
-| `/api/dashboard/orders` | GET | Get orders |
-| `/api/dashboard/account` | GET | Get account data |
-| `/api/webhook` | POST | Place order |
-| `/health` | GET | Health check |
+| Endpoint                   | Method | Description       |
+| -------------------------- | ------ | ----------------- |
+| `/desktop`                 | GET    | Trading interface |
+| `/api/dashboard/positions` | GET    | Get positions     |
+| `/api/dashboard/orders`    | GET    | Get orders        |
+| `/api/dashboard/account`   | GET    | Get account data  |
+| `/api/webhook`             | POST   | Place order       |
+| `/health`                  | GET    | Health check      |
 
 ## 🚢 Deployment
 
@@ -163,7 +224,7 @@ pm2 restart trading-app
 ### Extended Hours
 
 - Pre-market: 4:00 AM - 9:30 AM ET
-- Regular: 9:30 AM - 4:00 PM ET  
+- Regular: 9:30 AM - 4:00 PM ET
 - After-hours: 4:00 PM - 8:00 PM ET
 
 ### P&L Tracking
@@ -200,4 +261,3 @@ This software is for educational purposes. Trading involves risk. Use at your ow
 **Built with:** TypeScript, Express, TradingView API, Interactive Brokers API
 
 **Repository:** [https://github.com/mailtoakash08-glitch/tradingview-app](https://github.com/mailtoakash08-glitch/tradingview-app)
-

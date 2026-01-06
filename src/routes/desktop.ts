@@ -41,19 +41,135 @@ router.get("/", (req: Request, res: Response) => {
     /* Main Container */
     .trading-container {
       display: grid;
-      grid-template-columns: 1fr 380px;
+      grid-template-columns: 250px 1fr 380px;
       grid-template-rows: 1fr 280px;
       height: 100vh;
       gap: 1px;
       background: #000;
     }
 
-    /* Chart Area (Top Left) */
+    /* Watchlist Panel (Left Sidebar) */
+    .watchlist-panel {
+      background: #1E222D;
+      padding: 15px;
+      overflow-y: auto;
+      grid-row: 1 / 3;
+      grid-column: 1 / 2;
+      border-radius: 0;
+    }
+
+    .watchlist-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #fff;
+      border-bottom: 1px solid #2A2E39;
+      padding-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .watchlist-add-btn {
+      background: #2962FF;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .watchlist-add-btn:hover {
+      background: #1E53E5;
+    }
+
+    .watchlist-search {
+      width: 100%;
+      padding: 8px 10px;
+      background: #131722;
+      border: 1px solid #2A2E39;
+      border-radius: 6px;
+      color: #D1D4DC;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .watchlist-search:focus {
+      outline: none;
+      border-color: #2962FF;
+    }
+
+    .watchlist-items {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .watchlist-item {
+      padding: 10px 12px;
+      background: #131722;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+
+    .watchlist-item:hover {
+      background: #1A1E2B;
+      border-color: #2962FF;
+    }
+
+    .watchlist-item.active {
+      background: #1A1E2B;
+      border-color: #2962FF;
+    }
+
+    .watchlist-symbol {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .watchlist-price {
+      font-size: 12px;
+      color: #787B86;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .watchlist-change {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .watchlist-change.positive {
+      color: #26A69A;
+      background: rgba(38, 166, 154, 0.1);
+    }
+
+    .watchlist-change.negative {
+      color: #EF5350;
+      background: rgba(239, 83, 80, 0.1);
+    }
+
+    .watchlist-empty {
+      text-align: center;
+      color: #787B86;
+      font-size: 13px;
+      padding: 20px;
+    }
+
+    /* Chart Area (Top Middle) */
     .chart-section {
       background: #131722;
       position: relative;
       grid-row: 1 / 2;
-      grid-column: 1 / 2;
+      grid-column: 2 / 3;
     }
 
     #tradingview_chart {
@@ -67,8 +183,8 @@ router.get("/", (req: Request, res: Response) => {
       padding: 20px;
       overflow-y: auto;
       grid-row: 1 / 2;
-      grid-column: 2 / 3;
-      border-radius: 8px 0 0 0;
+      grid-column: 3 / 4;
+      border-radius: 0;
     }
 
     .panel-header {
@@ -181,8 +297,8 @@ router.get("/", (req: Request, res: Response) => {
       padding: 20px;
       overflow-y: auto;
       grid-row: 2 / 3;
-      grid-column: 1 / 3;
-      border-radius: 0 0 8px 8px;
+      grid-column: 2 / 4;
+      border-radius: 0;
     }
 
     .positions-header {
@@ -385,6 +501,26 @@ router.get("/", (req: Request, res: Response) => {
   </div>
 
   <div class="trading-container">
+    <!-- Watchlist Panel -->
+    <div class="watchlist-panel">
+      <div class="watchlist-header">
+        <span>📋 Watchlist</span>
+        <button class="watchlist-add-btn" onclick="addToWatchlist()" title="Add Symbol">+</button>
+      </div>
+      
+      <input 
+        type="text" 
+        class="watchlist-search" 
+        id="watchlistSearch"
+        placeholder="Search symbols..."
+        onkeyup="filterWatchlist()"
+      />
+      
+      <div class="watchlist-items" id="watchlistItems">
+        <!-- Watchlist items will be populated here -->
+      </div>
+    </div>
+
     <!-- Chart Section -->
     <div class="chart-section">
       <div id="tradingview_chart"></div>
@@ -512,6 +648,90 @@ router.get("/", (req: Request, res: Response) => {
       realizedPnL: 0,
       totalPnL: 0
     };
+
+    // Watchlist state
+    let watchlist = JSON.parse(localStorage.getItem('watchlist') || '["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "AMZN", "META", "SPY", "QQQ", "DVLT"]');
+    
+    // Save watchlist to localStorage
+    function saveWatchlist() {
+      localStorage.setItem('watchlist', JSON.stringify(watchlist));
+    }
+
+    // Add symbol to watchlist
+    function addToWatchlist() {
+      const symbol = prompt('Enter symbol to add:');
+      if (symbol && symbol.trim()) {
+        const upperSymbol = symbol.trim().toUpperCase();
+        if (!watchlist.includes(upperSymbol)) {
+          watchlist.push(upperSymbol);
+          saveWatchlist();
+          renderWatchlist();
+        } else {
+          alert('Symbol already in watchlist');
+        }
+      }
+    }
+
+    // Remove from watchlist
+    function removeFromWatchlist(symbol) {
+      if (confirm(`Remove ${symbol} from watchlist?`)) {
+        watchlist = watchlist.filter(s => s !== symbol);
+        saveWatchlist();
+        renderWatchlist();
+      }
+    }
+
+    // Filter watchlist based on search
+    function filterWatchlist() {
+      const search = document.getElementById('watchlistSearch').value.toUpperCase();
+      const items = document.querySelectorAll('.watchlist-item');
+      
+      items.forEach(item => {
+        const symbol = item.dataset.symbol;
+        if (symbol.includes(search)) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // Select symbol from watchlist
+    function selectSymbol(symbol) {
+      currentSymbol = symbol;
+      document.getElementById('symbol').value = symbol;
+      initChart(symbol);
+      
+      // Update active state
+      document.querySelectorAll('.watchlist-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      document.querySelector(`[data-symbol="${symbol}"]`).classList.add('active');
+    }
+
+    // Render watchlist
+    function renderWatchlist() {
+      const container = document.getElementById('watchlistItems');
+      
+      if (watchlist.length === 0) {
+        container.innerHTML = '<div class="watchlist-empty">No symbols in watchlist.<br>Click + to add.</div>';
+        return;
+      }
+      
+      container.innerHTML = watchlist.map(symbol => `
+        <div class="watchlist-item ${symbol === currentSymbol ? 'active' : ''}" 
+             data-symbol="${symbol}"
+             onclick="selectSymbol('${symbol}')"
+             oncontextmenu="event.preventDefault(); removeFromWatchlist('${symbol}');"
+             title="Left-click to select, Right-click to remove">
+          <div class="watchlist-symbol">${symbol}</div>
+          <div class="watchlist-price">
+            <span class="price-value" id="price-${symbol}">--</span>
+            <span class="watchlist-change" id="change-${symbol}">--</span>
+          </div>
+        </div>
+      `).join('');
+    }
 
     // Initialize TradingView Chart
     function initChart(symbol) {
@@ -807,6 +1027,9 @@ router.get("/", (req: Request, res: Response) => {
         }
       }, 100);
     }
+    
+    // Initialize watchlist
+    renderWatchlist();
     
     fetchPositions();
     fetchAccountSummary();
