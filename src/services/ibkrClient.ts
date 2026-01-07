@@ -157,6 +157,36 @@ class IbkrClient {
       logger.info("Next valid order ID received", { orderId });
       this.nextOrderId = orderId;
     });
+
+    // Position updates (for manual position sync)
+    this.ib.on(
+      EventName.position,
+      (account: string, contract: Contract, pos: number, avgCost: number) => {
+        logger.info("Position update received", {
+          account,
+          symbol: contract.symbol,
+          position: pos,
+          avgCost,
+        });
+
+        // Sync position to position manager
+        if (pos !== 0) {
+          positionManager.handleOrderFill({
+            orderId: `POS-${contract.symbol}-${Date.now()}`,
+            symbol: contract.symbol!,
+            action: pos > 0 ? "BUY" : "SELL",
+            quantity: Math.abs(pos),
+            fillPrice: avgCost,
+            commission: 0,
+            timestamp: new Date(),
+          });
+        }
+      }
+    );
+
+    this.ib.on(EventName.positionEnd, () => {
+      logger.info("Position updates complete");
+    });
   }
 
   /**
@@ -225,6 +255,10 @@ class IbkrClient {
           account: config.ibkr.accountId,
         });
       }
+
+      // Request positions (for paper trading reliability)
+      this.ib!.reqPositions();
+      logger.info("Requested current positions from IBKR");
     } catch (error: any) {
       logger.error("Failed to connect to IBKR Gateway", {
         error: error.message,
