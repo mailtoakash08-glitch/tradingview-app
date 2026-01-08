@@ -485,6 +485,44 @@ class IbkrClient {
   }
 
   /**
+   * Cancel order by order ID
+   */
+  async cancelOrder(orderId: string): Promise<boolean> {
+    if (!this.connected || !this.ib) {
+      logger.error("Cannot cancel order: Not connected to IBKR");
+      return false;
+    }
+
+    try {
+      // Convert our tracked order ID to IBKR order ID
+      let ibkrOrderId: number | null = null;
+
+      // Search through our mapping
+      for (const [ibId, trackedId] of this.ibkrOrderIdMap.entries()) {
+        if (trackedId === orderId) {
+          ibkrOrderId = ibId;
+          break;
+        }
+      }
+
+      if (!ibkrOrderId) {
+        logger.error("Order ID not found in mapping", { orderId });
+        return false;
+      }
+
+      this.ib.cancelOrder(ibkrOrderId);
+      logger.info("Order cancelled", { orderId, ibkrOrderId });
+      return true;
+    } catch (error: any) {
+      logger.error("Failed to cancel order", {
+        orderId,
+        error: error.message,
+      });
+      return false;
+    }
+  }
+
+  /**
    * Check if connected
    */
   isConnected(): boolean {

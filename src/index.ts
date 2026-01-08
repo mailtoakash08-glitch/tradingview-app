@@ -3,7 +3,7 @@
  */
 
 import { createApp } from "./server";
-import { ibkrClient } from "./services/ibkrClient";
+import { brokerRouter } from "./services/brokerRouter";
 import { logger } from "./logger";
 import config from "./config";
 
@@ -13,15 +13,17 @@ async function start() {
       nodeEnv: config.nodeEnv,
       port: config.port,
       allowedSymbols: config.allowedSymbols,
+      defaultBroker: config.defaultBroker,
+      lightspeedEnabled: config.lightspeed.enabled,
     });
 
-    // Initialize IBKR connection
+    // Initialize all broker connections
     try {
-      await ibkrClient.connect();
+      await brokerRouter.initializeBrokers();
     } catch (error: any) {
-      logger.error("Failed to connect to IBKR", {
+      logger.error("Failed to initialize brokers", {
         error: error.message,
-        note: "Running in simulation mode",
+        note: "Running with limited broker connectivity",
       });
     }
 
@@ -47,10 +49,12 @@ async function start() {
         logger.info("HTTP server closed");
 
         try {
+          // Disconnect all brokers
+          const { ibkrClient } = await import("./services/ibkrClient");
           await ibkrClient.disconnect();
           logger.info("IBKR client disconnected");
         } catch (error: any) {
-          logger.error("Error disconnecting IBKR client", {
+          logger.error("Error disconnecting brokers", {
             error: error.message,
           });
         }

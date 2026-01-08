@@ -2,7 +2,7 @@
  * Internal order and signal types
  */
 
-import { TradingViewAction, StrategyName } from './tradingView';
+import { TradingViewAction, StrategyName } from "./tradingView";
 
 /**
  * Normalized internal trade signal
@@ -12,6 +12,7 @@ export interface TradeSignal {
   symbol: string;
   action: TradingViewAction;
   quantity: number;
+  broker?: "ibkr" | "lightspeed"; // Broker selection
   takeProfitPrice?: number;
   stopLossPrice?: number;
   stopPrice?: number; // For STOP MARKET entry orders
@@ -26,14 +27,14 @@ export interface TradeSignal {
  */
 export interface IbkrOrderRequest {
   symbol: string;
-  action: 'BUY' | 'SELL';
-  orderType: 'MKT' | 'LMT' | 'STP' | 'TRAIL';
+  action: "BUY" | "SELL";
+  orderType: "MKT" | "LMT" | "STP" | "TRAIL";
   quantity: number;
   limitPrice?: number;
   stopPrice?: number;
   trailingAmount?: number;
   outsideRth: boolean;
-  timeInForce: 'DAY' | 'GTC';
+  timeInForce: "DAY" | "GTC";
   metadata?: {
     strategy: StrategyName;
     originalAction: TradingViewAction;
@@ -45,8 +46,9 @@ export interface IbkrOrderRequest {
  */
 export interface IbkrOrderResponse {
   success: boolean;
-  orderId?: string;
+  orderId: string;
   message?: string;
+  error?: string;
   raw?: any;
 }
 

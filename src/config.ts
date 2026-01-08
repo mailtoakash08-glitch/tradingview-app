@@ -41,7 +41,17 @@ interface Config {
     accountId: string;
   };
 
+  // Lightspeed
+  lightspeed: {
+    enabled: boolean;
+    apiUrl: string;
+    apiKey: string;
+    apiSecret: string;
+    accountId: string;
+  };
+
   // Trading
+  defaultBroker: "ibkr" | "lightspeed";
   defaultTimeInForce: "DAY" | "GTC";
   autoStopOnErrors: boolean;
   maxConsecutiveErrors: number;
@@ -91,6 +101,16 @@ const config: Config = {
     accountId: process.env.IBKR_ACCOUNT_ID || "",
   },
 
+  lightspeed: {
+    enabled: process.env.LIGHTSPEED_ENABLED === "true",
+    apiUrl: process.env.LIGHTSPEED_API_URL || "https://api.lightspeed.com",
+    apiKey: process.env.LIGHTSPEED_API_KEY || "",
+    apiSecret: process.env.LIGHTSPEED_API_SECRET || "",
+    accountId: process.env.LIGHTSPEED_ACCOUNT_ID || "",
+  },
+
+  defaultBroker:
+    (process.env.DEFAULT_BROKER as "ibkr" | "lightspeed") || "ibkr",
   defaultTimeInForce:
     (process.env.DEFAULT_TIME_IN_FORCE as "DAY" | "GTC") || "DAY",
   autoStopOnErrors: process.env.AUTO_STOP_ON_ERRORS !== "false",

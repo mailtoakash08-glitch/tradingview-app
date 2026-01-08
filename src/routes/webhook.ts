@@ -6,7 +6,7 @@ import { Router, Request, Response } from "express";
 import { orderParser } from "../services/orderParser";
 import { riskManager } from "../services/riskManager";
 import { orderRouter } from "../services/orderRouter";
-import { ibkrClient } from "../services/ibkrClient";
+import { brokerRouter } from "../services/brokerRouter";
 import { logger } from "../logger";
 
 const router = Router();
@@ -94,10 +94,11 @@ router.post("/tradingview", async (req: Request, res: Response) => {
     logger.info(`[${requestId}] Step 4 SUCCESS: Risk checks passed`);
 
     // Build IBKR order
-    logger.info(`[${requestId}] Step 5: Building IBKR order`);
+    logger.info(`[${requestId}] Step 5: Building order`);
     const orderRequest = orderRouter.buildOrder(signal);
     logger.info(`[${requestId}] Step 5 SUCCESS: Order built`, {
-      ibkrAction: orderRequest.action,
+      broker: signal.broker || "ibkr",
+      action: orderRequest.action,
       orderType: orderRequest.orderType,
       quantity: orderRequest.quantity,
       limitPrice: orderRequest.limitPrice,
@@ -106,11 +107,18 @@ router.post("/tradingview", async (req: Request, res: Response) => {
       outsideRth: orderRequest.outsideRth,
     });
 
-    // Place order with IBKR
-    logger.info(`[${requestId}] Step 6: Placing order with IBKR Gateway`);
-    const orderResponse = await ibkrClient.placeOrder(orderRequest);
+    // Place order with selected broker
+    const selectedBroker = signal.broker || "ibkr";
+    logger.info(
+      `[${requestId}] Step 6: Placing order with ${selectedBroker.toUpperCase()}`
+    );
+    const orderResponse = await brokerRouter.placeOrder(
+      orderRequest,
+      selectedBroker
+    );
 
-    logger.info(`[${requestId}] Step 6 COMPLETE: IBKR response received`, {
+    logger.info(`[${requestId}] Step 6 COMPLETE: Broker response received`, {
+      broker: selectedBroker,
       success: orderResponse.success,
       orderId: orderResponse.orderId,
       message: orderResponse.message,

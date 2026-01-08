@@ -744,6 +744,14 @@ router.get("/", (req: Request, res: Response) => {
       
       <form id="trading-form">
         <div class="form-group">
+          <label>Broker</label>
+          <select id="broker">
+            <option value="ibkr">🏦 Interactive Brokers</option>
+            <option value="lightspeed">⚡ Lightspeed (Faster, Lower Fees)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label>Ticker Symbol</label>
           <input type="text" id="symbol" placeholder="AAPL" required />
         </div>
@@ -1357,6 +1365,7 @@ router.get("/", (req: Request, res: Response) => {
 
     // Place Order
     async function placeOrder(action) {
+      const broker = document.getElementById('broker').value;
       const symbol = document.getElementById('symbol').value.toUpperCase().trim();
       const quantity = parseInt(document.getElementById('quantity').value);
       const orderType = document.getElementById('orderType').value;
@@ -1373,6 +1382,7 @@ router.get("/", (req: Request, res: Response) => {
         action: action === 'BUY' ? 'ENTRY_LONG' : 'EXIT',
         symbol: symbol,
         qty: quantity,
+        broker: broker,
         orderType: orderType,
         outsideRth: extendedHours
       };
