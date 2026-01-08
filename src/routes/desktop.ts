@@ -22,7 +22,7 @@ router.get("/", (req: Request, res: Response) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trading Desktop - IBKR</title>
-  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <script type="text/javascript" src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     * {
       margin: 0;
@@ -917,7 +917,10 @@ router.get("/", (req: Request, res: Response) => {
   <script>
     // Global State
     let currentSymbol = 'DVLT';
-    let tvWidget = null;
+    let chart = null;
+    let candleSeries = null;
+    let orderLines = {}; // Track drawn order lines {orderId: priceLine}
+    let positionLines = {}; // Track position entry lines {symbol: priceLine}
     let positions = [];
     let pendingOrders = []; // Track pending stop orders
     let accountData = {
@@ -925,6 +928,10 @@ router.get("/", (req: Request, res: Response) => {
       unrealizedPnL: 0,
       realizedPnL: 0,
       totalPnL: 0
+    };
+    let currentSymbolData = {
+      symbol: 'AAPL',
+      lastPrice: 0
     };
 
     // Watchlist state
@@ -1077,61 +1084,223 @@ router.get("/", (req: Request, res: Response) => {
       }
       
       console.log('Container found:', container);
+      currentSymbolData.symbol = symbol;
       
-      // Remove existing widget first
-      if (tvWidget) {
+      // Remove existing chart first
+      if (chart) {
         try {
-          tvWidget.remove();
-          console.log('Existing widget removed');
+          chart.remove();
+          console.log('Existing chart removed');
         } catch (e) {
-          console.warn('Error removing widget:', e);
+          console.warn('Error removing chart:', e);
         }
-        tvWidget = null;
+        chart = null;
+        candleSeries = null;
+        orderLines = {};
+        positionLines = {};
       }
       
-      // Clear container after removing widget
+      // Clear container
       container.innerHTML = '';
 
-      // Map common symbols to TradingView format
-      let tvSymbol = symbol.toUpperCase();
-      
-      // Default exchange for most stocks
-      if (!tvSymbol.includes(':')) {
-        tvSymbol = 'NASDAQ:' + tvSymbol;
-      }
-
-      console.log('Creating TradingView widget for:', tvSymbol);
+      console.log('Creating Lightweight Chart for:', symbol);
 
       try {
-        tvWidget = new TradingView.widget({
-          "width": "100%",
-          "height": "100%",
-          "symbol": tvSymbol,
-          "interval": "5",
-          "timezone": "America/New_York",
-          "theme": "dark",
-          "style": "1",
-          "locale": "en",
-          "toolbar_bg": "#131722",
-          "enable_publishing": false,
-          "hide_side_toolbar": false,
-          "allow_symbol_change": true,
-          "container_id": "tradingview_chart",
-          "studies": [
-            "Volume@tv-basicstudies"
-          ],
-          "overrides": {
-            "paneProperties.background": "#131722",
-            "paneProperties.backgroundType": "solid",
-            "paneProperties.vertGridProperties.color": "#1E222D",
-            "paneProperties.horzGridProperties.color": "#1E222D"
+        // Create chart
+        chart = LightweightCharts.createChart(container, {
+          width: container.clientWidth,
+          height: container.clientHeight,
+          layout: {
+            background: { color: '#131722' },
+            textColor: '#D1D4DC',
+          },
+          grid: {
+            vertLines: { color: '#1E222D' },
+            horzLines: { color: '#1E222D' },
+          },
+          crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+          },
+          rightPriceScale: {
+            borderColor: '#2A2E39',
+          },
+          timeScale: {
+            borderColor: '#2A2E39',
+            timeVisible: true,
+            secondsVisible: false,
+          },
+        });
+
+        // Create candlestick series
+        candleSeries = chart.addCandlestickSeries({
+          upColor: '#26a69a',
+          downColor: '#ef5350',
+          borderVisible: false,
+          wickUpColor: '#26a69a',
+          wickDownColor: '#ef5350',
+        });
+
+        // Fetch and display data for the symbol
+        fetch Real-time data
+        fetchChartData(symbol);
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+          if (chart) {
+            chart.applyOptions({
+              width: container.clientWidth,
+              height: container.clientHeight,
+            });
           }
         });
+
+        console.log('Lightweight Chart created successfully');
         
-        console.log('TradingView widget created successfully');
+        // Redraw order lines for current symbol
+        redrawOrderLines();
       } catch (error) {
-        console.error('Error creating TradingView widget:', error);
+        console.error('Error creating chart:', error);
         alert('Error loading chart. Please refresh the page.');
+      }
+    }
+
+    // Fetch chart data (simplified - using random data for now)
+    async function fetchChartData(symbol) {
+      try {
+        // For demo purposes, generate sample data
+        // In production, fetch from your API or data provider
+        const data = generateSampleData();
+        candleSeries.setData(data);
+        
+        // Store last price
+        if (data.length > 0) {
+          currentSymbolData.lastPrice = data[data.length - 1].close;
+        }
+
+        // Fit content
+        chart.timeScale().fitContent();
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+      }
+    }
+
+    // Generate sample candlestick data
+    function generateSampleData() {
+      const data = [];
+      const basePrice = 100 + Math.random() * 100;
+      let currentPrice = basePrice;
+      const now = Math.floor(Date.now() / 1000);
+      
+      for (let i = 100; i >= 0; i--) {
+        const time = now - (i * 300); // 5-minute bars
+        const change = (Math.random() - 0.5) * 2;
+        const open = currentPrice;
+        const close = open + change;
+        const high = Math.max(open, close) + Math.random();
+        const low = Math.min(open, close) - Math.random();
+        
+        data.push({
+          time: time,
+          open: open,
+          high: high,
+          low: low,
+          close: close,
+        });
+        
+        currentPrice = close;
+      }
+      
+      return data;
+    }
+
+    // Draw order line on chart
+    function drawOrderLine(order) {
+      if (!candleSeries || order.symbol !== currentSymbolData.symbol) {
+        return; // Only draw if chart exists and symbol matches
+      }
+
+      const price = order.stopPrice || order.limitPrice || order.price;
+      if (!price) return;
+
+      // Color based on order type and side
+      let color = '#2962FF'; // Default blue
+      let lineStyle = LightweightCharts.LineStyle.Solid;
+      let title = '';
+
+      if (order.orderType === 'STP') {
+        color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
+        title = `${order.action} STOP @ $${price.toFixed(2)}`;
+        lineStyle = LightweightCharts.LineStyle.Dashed;
+      } else if (order.orderType === 'LMT') {
+        color = '#FFA726';
+        title = `${order.action} LIMIT @ $${price.toFixed(2)}`;
+        lineStyle = LightweightCharts.LineStyle.Dotted;
+      }
+
+      const priceLine = candleSeries.createPriceLine({
+        price: price,
+        color: color,
+        lineWidth: 2,
+        lineStyle: lineStyle,
+        axisLabelVisible: true,
+        title: title,
+      });
+
+      orderLines[order.orderId] = priceLine;
+      console.log('Drew order line:', order.orderId, 'at price:', price);
+    }
+
+    // Draw position entry line
+    function drawPositionLine(position) {
+      if (!candleSeries || position.symbol !== currentSymbolData.symbol) {
+        return;
+      }
+
+      const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
+      const side = position.quantity > 0 ? 'LONG' : 'SHORT';
+      const title = `${Math.abs(position.quantity)} ${side} @ $${position.entryPrice.toFixed(2)}`;
+
+      const priceLine = candleSeries.createPriceLine({
+        price: position.entryPrice,
+        color: color,
+        lineWidth: 3,
+        lineStyle: LightweightCharts.LineStyle.Solid,
+        axisLabelVisible: true,
+        title: title,
+      });
+
+      positionLines[position.symbol] = priceLine;
+      console.log('Drew position line:', position.symbol, 'at price:', position.entryPrice);
+    }
+
+    // Redraw all order lines for current symbol
+    function redrawOrderLines() {
+      // Clear existing lines
+      for (const lineId in orderLines) {
+        try {
+          candleSeries.removePriceLine(orderLines[lineId]);
+        } catch (e) {}
+      }
+      for (const lineId in positionLines) {
+        try {
+          candleSeries.removePriceLine(positionLines[lineId]);
+        } catch (e) {}
+      }
+      orderLines = {};
+      positionLines = {};
+
+      // Draw position lines
+      for (const position of positions) {
+        if (position.symbol === currentSymbolData.symbol) {
+          drawPositionLine(position);
+        }
+      }
+
+      // Draw pending order lines
+      for (const order of pendingOrders) {
+        if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
+          drawOrderLine(order);
+        }
       }
     }
 
@@ -1369,6 +1538,8 @@ router.get("/", (req: Request, res: Response) => {
       
       if (pendingOrders.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No pending stop orders</td></tr>';
+        // Redraw lines (will clear order lines if empty)
+        if (chart) redrawOrderLines();
         return;
       }
 
@@ -1392,6 +1563,9 @@ router.get("/", (req: Request, res: Response) => {
           </tr>
         \`;
       }).join('');
+
+      // Redraw order lines on chart
+      if (chart) redrawOrderLines();
     }
 
     // Cancel Order
@@ -1426,6 +1600,8 @@ router.get("/", (req: Request, res: Response) => {
       if (positions.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No open positions</td></tr>';
         updatePositionMarker(null); // Hide marker
+        // Redraw lines (will clear position lines if empty)
+        if (chart) redrawOrderLines();
         return;
       }
 
@@ -1451,6 +1627,21 @@ router.get("/", (req: Request, res: Response) => {
             <td class="\${pnlClass}">\${pnl >= 0 ? '+' : ''}$\${pnl.toFixed(2)}</td>
             <td class="\${pnlClass}">\${pnl >= 0 ? '+' : ''}\${pnlPercent.toFixed(2)}%</td>
             <td><span class="status-badge status-open">OPEN</span></td>
+            <td>
+              <button class="action-btn close-btn" onclick="closePosition('\${pos.symbol}')" title="Close Position">
+                ✕ Close
+              </button>
+              <button class="action-btn flip-btn" onclick="flipPosition('\${pos.symbol}', \${pos.quantity})" title="Flip Position">
+                🔄 Flip
+              </button>
+            </td>
+          </tr>
+        \`;
+      }).join('');
+
+      // Redraw position lines on chart
+      if (chart) redrawOrderLines();
+    }
             <td>
               <button class="action-btn close-btn" onclick="closePosition('\${pos.symbol}', \${pos.quantity})" title="Close Position">
                 ✕
@@ -1740,17 +1931,17 @@ router.get("/", (req: Request, res: Response) => {
     document.getElementById('addWatchlistBtn').addEventListener('click', addToWatchlist);
     document.getElementById('watchlistSearch').addEventListener('keyup', filterWatchlist);
     
-    if (typeof TradingView !== 'undefined') {
-      console.log('TradingView library found immediately');
+    if (typeof LightweightCharts !== 'undefined') {
+      console.log('LightweightCharts library found immediately');
       renderWatchlist();
       initChart(currentSymbol);
     } else {
-      console.log('Waiting for TradingView library to load...');
-      // Wait for TradingView library to load
-      const checkTradingView = setInterval(() => {
-        if (typeof TradingView !== 'undefined') {
-          console.log('TradingView library loaded!');
-          clearInterval(checkTradingView);
+      console.log('Waiting for LightweightCharts library to load...');
+      // Wait for LightweightCharts library to load
+      const checkLightweightCharts = setInterval(() => {
+        if (typeof LightweightCharts !== 'undefined') {
+          console.log('LightweightCharts library loaded!');
+          clearInterval(checkLightweightCharts);
           renderWatchlist();
           initChart(currentSymbol);
         }
@@ -1758,8 +1949,8 @@ router.get("/", (req: Request, res: Response) => {
       
       // Timeout after 10 seconds
       setTimeout(() => {
-        if (typeof TradingView === 'undefined') {
-          console.error('TradingView library failed to load after 10 seconds');
+        if (typeof LightweightCharts === 'undefined') {
+          console.error('LightweightCharts library failed to load after 10 seconds');
           alert('Chart library failed to load. Please check your internet connection and refresh.');
         }
       }, 10000);
