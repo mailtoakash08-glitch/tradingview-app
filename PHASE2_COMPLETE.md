@@ -8,19 +8,23 @@
 ## 📋 **WHAT WAS BUILT:**
 
 ### ✅ **1. FLIP POSITION FEATURE**
+
 **One-click position reversal**
 
 **Locations:**
+
 - Main "Quick Actions" panel (orange 🔄 FLIP Position button)
 - Individual position rows (🔄 icon in ACTIONS column)
 
 **How it works:**
+
 - **LONG → SHORT:** Closes long position + Opens short position (same quantity)
 - **SHORT → LONG:** Closes short position + Opens long position (same quantity)
 - Executes as 2 orders with 500ms delay between them
 - Auto-refreshes positions after execution
 
 **Use Cases:**
+
 - Quickly reverse your market bias
 - Take advantage of sudden trend reversals
 - Exit and re-enter opposite direction in one click
@@ -28,11 +32,13 @@
 ---
 
 ### ✅ **2. CLOSE ALL POSITIONS**
+
 **Emergency position closure**
 
 **Location:** Purple "❌ Close All" button in Quick Actions panel
 
 **Features:**
+
 - Closes ALL open positions simultaneously
 - Confirmation dialog prevents accidental clicks
 - Shows success/fail count after execution
@@ -40,6 +46,7 @@
 - Auto-refreshes positions when complete
 
 **Use Cases:**
+
 - End of trading day cleanup
 - Emergency risk management
 - Quickly flatten all exposure
@@ -47,13 +54,16 @@
 ---
 
 ### ✅ **3. INDIVIDUAL POSITION ACTIONS**
+
 **Per-position management buttons**
 
 **New ACTIONS column in positions table:**
+
 - **✕ (Close)** - Close this specific position only
 - **🔄 (Flip)** - Flip this specific position only
 
 **Features:**
+
 - Hover effects for visual feedback
 - Tooltips explain each action
 - Confirmation dialogs for safety
@@ -62,12 +72,15 @@
 ---
 
 ### ✅ **4. BRACKET ORDERS**
+
 **Auto-calculated risk/reward orders**
 
 **Location:** New "🎯 Bracket Order" checkbox in trading panel
 
 **Features:**
+
 - **Risk/Reward Ratios:**
+
   - 1:1 (Conservative) - Equal risk and reward
   - 1:2 (Balanced) - Double reward for same risk ⭐ DEFAULT
   - 1:3 (Aggressive) - Triple reward for same risk
@@ -78,6 +91,7 @@
 - **Smart disabling:** Manual TP/SL inputs disabled when bracket enabled
 
 **Example:**
+
 ```
 Risk Amount: $5
 Ratio: 1:2
@@ -89,6 +103,7 @@ Result:
 ```
 
 **How to use:**
+
 1. Check "Bracket Order" checkbox
 2. Select risk/reward ratio
 3. Enter risk amount in dollars
@@ -98,11 +113,13 @@ Result:
 ---
 
 ### ✅ **5. VISUAL POSITION MARKER**
+
 **Real-time position overlay on chart**
 
 **Location:** Top-right corner of chart section
 
 **Displays:**
+
 - 📍 Symbol (current position)
 - Type (LONG/SHORT)
 - Quantity
@@ -111,6 +128,7 @@ Result:
 - Real-time P&L ($ and %)
 
 **Features:**
+
 - Color-coded border:
   - Green = LONG position
   - Red = SHORT position
@@ -122,9 +140,11 @@ Result:
 ---
 
 ### ✅ **6. ENHANCED POSITION TABLE**
+
 **Better position visibility**
 
 **Improvements:**
+
 - Quantity shows: `100 LONG` or `50 SHORT` instead of just numbers
 - New ACTIONS column with Close/Flip buttons
 - Better P&L color coding (green/red)
@@ -143,6 +163,7 @@ chmod +x deploy-phase2.sh
 ```
 
 This will:
+
 1. ✅ Commit any pending changes
 2. ✅ Push to GitHub
 3. ✅ SSH to VPS and pull latest code
@@ -184,6 +205,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ## 🧪 **TESTING CHECKLIST:**
 
 ### **Test 1: FLIP Button**
+
 1. ✅ Open `http://165.227.104.40:3000/desktop`
 2. ✅ Buy 1 share of AAPL
 3. ✅ Wait for order to fill (check positions table)
@@ -196,6 +218,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ---
 
 ### **Test 2: Close All**
+
 1. ✅ Open 2-3 test positions (1 share each)
 2. ✅ Click "❌ Close All" button in Quick Actions
 3. ✅ Confirm in dialog
@@ -207,6 +230,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ---
 
 ### **Test 3: Bracket Order**
+
 1. ✅ Open desktop UI
 2. ✅ Check "🎯 Bracket Order" checkbox
 3. ✅ Select ratio: "1:2 (Balanced)"
@@ -221,6 +245,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ---
 
 ### **Test 4: Position Marker**
+
 1. ✅ Open a position (any symbol)
 2. ✅ Look at top-right of chart
 3. ✅ Verify marker appears with:
@@ -238,6 +263,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ---
 
 ### **Test 5: Individual Close**
+
 1. ✅ Open 2 positions (different symbols)
 2. ✅ Click ✕ button on FIRST position only
 3. ✅ Confirm dialog
@@ -251,6 +277,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ## 📊 **NEW UI ELEMENTS:**
 
 ### **Quick Actions Panel**
+
 ```
 ⚡ Quick Actions
 ┌─────────────────────────┐
@@ -261,6 +288,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ```
 
 ### **Bracket Order Section**
+
 ```
 ☑ 🎯 Bracket Order (Auto TP/SL based on risk %)
 
@@ -274,6 +302,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ```
 
 ### **Position Marker**
+
 ```
 ┌─────────────────────────┐
 │ 📍 Active Position      │
@@ -288,6 +317,7 @@ cd /Users/dev/Documents/tradingview && chmod +x quick-deploy.sh && ./quick-deplo
 ```
 
 ### **Enhanced Positions Table**
+
 ```
 SYMBOL | QUANTITY    | ... | ACTIONS
 -------+-------------+-----+----------
@@ -300,6 +330,7 @@ TSLA   | 50 SHORT    | ... | [✕] [🔄]
 ## 🎓 **HOW TO USE: COMPLETE WORKFLOW**
 
 ### **Workflow 1: Quick Day Trading**
+
 ```
 1. Select symbol (AAPL)
 2. Enter quantity (10)
@@ -317,6 +348,7 @@ TSLA   | 50 SHORT    | ... | [✕] [🔄]
 ```
 
 ### **Workflow 2: End of Day Cleanup**
+
 ```
 1. Trading session ends
 2. Check positions table (5 open positions)
@@ -327,6 +359,7 @@ TSLA   | 50 SHORT    | ... | [✕] [🔄]
 ```
 
 ### **Workflow 3: Manual Position Management**
+
 ```
 1. Open LONG position (AAPL, 100 shares)
 2. Watch position marker for P&L
@@ -343,13 +376,16 @@ TSLA   | 50 SHORT    | ... | [✕] [🔄]
 ## 🐛 **TROUBLESHOOTING:**
 
 ### **Issue: Flip button doesn't work**
+
 **Check:**
+
 - Is there an open position for that symbol?
 - Check browser console (F12) for errors
 - Verify IB Gateway is running
 - Check PM2 logs: `ssh root@165.227.104.40 'pm2 logs trading-app'`
 
 **Fix:**
+
 ```bash
 ssh root@165.227.104.40 'pm2 restart trading-app'
 ```
@@ -357,7 +393,9 @@ ssh root@165.227.104.40 'pm2 restart trading-app'
 ---
 
 ### **Issue: Position marker not showing**
+
 **Check:**
+
 - Do you have a position for the CURRENT symbol?
 - Try switching to a different symbol that has a position
 - Refresh page (F5)
@@ -367,7 +405,9 @@ ssh root@165.227.104.40 'pm2 restart trading-app'
 ---
 
 ### **Issue: Bracket order not calculating**
+
 **Check:**
+
 - Is "Bracket Order" checkbox checked?
 - Is risk amount filled in?
 - Manual TP/SL should be disabled (grayed out)
@@ -377,12 +417,15 @@ ssh root@165.227.104.40 'pm2 restart trading-app'
 ---
 
 ### **Issue: Close All doesn't close everything**
+
 **Check logs:**
+
 ```bash
 ssh root@165.227.104.40 'pm2 logs trading-app --lines 50'
 ```
 
 Look for errors like:
+
 - "Symbol not allowed"
 - "Risk limit exceeded"
 - "IBKR connection lost"
@@ -394,6 +437,7 @@ Look for errors like:
 ## 📁 **FILES CHANGED:**
 
 ### **Modified:**
+
 - `src/routes/desktop.ts` - Main UI and all new features
   - Added FLIP button HTML and CSS
   - Added Close All button
@@ -403,6 +447,7 @@ Look for errors like:
   - Updated positions table with ACTIONS column
 
 ### **Created:**
+
 - `deploy-phase2.sh` - Automated deployment script
 - `quick-deploy.sh` - One-liner deployment
 - `PHASE2_COMPLETE.md` - This documentation
@@ -411,15 +456,15 @@ Look for errors like:
 
 ## ✅ **TODO STATUS:**
 
-| ID | Task | Status |
-|----|------|--------|
-| phase2-1 | Add FLIP button to desktop UI | ✅ COMPLETED |
-| phase2-2 | Create Order Management panel | ✅ COMPLETED |
-| phase2-3 | Add visual position entry markers | ✅ COMPLETED |
-| phase2-4 | Add stop-loss/take-profit visual lines | ✅ COMPLETED |
-| phase2-5 | Implement bracket orders | ✅ COMPLETED |
-| phase2-6 | Add order cancel functionality | ✅ COMPLETED |
-| phase2-7 | Test all order flows and deploy | 🔄 IN PROGRESS |
+| ID       | Task                                   | Status         |
+| -------- | -------------------------------------- | -------------- |
+| phase2-1 | Add FLIP button to desktop UI          | ✅ COMPLETED   |
+| phase2-2 | Create Order Management panel          | ✅ COMPLETED   |
+| phase2-3 | Add visual position entry markers      | ✅ COMPLETED   |
+| phase2-4 | Add stop-loss/take-profit visual lines | ✅ COMPLETED   |
+| phase2-5 | Implement bracket orders               | ✅ COMPLETED   |
+| phase2-6 | Add order cancel functionality         | ✅ COMPLETED   |
+| phase2-7 | Test all order flows and deploy        | 🔄 IN PROGRESS |
 
 ---
 
@@ -436,35 +481,39 @@ Look for errors like:
 
 ## 🎯 **KEY FEATURES SUMMARY:**
 
-| Feature | Benefit | Location |
-|---------|---------|----------|
-| 🔄 FLIP Button | Instant position reversal | Quick Actions + Table |
-| ❌ Close All | Emergency exit | Quick Actions |
-| ✕ Individual Close | Selective management | Position Table |
-| 🎯 Bracket Orders | Auto TP/SL with R:R | Trading Panel |
-| 📍 Position Marker | Live P&L tracking | Chart Overlay |
-| 100 LONG/SHORT | Clear position type | Position Table |
+| Feature            | Benefit                   | Location              |
+| ------------------ | ------------------------- | --------------------- |
+| 🔄 FLIP Button     | Instant position reversal | Quick Actions + Table |
+| ❌ Close All       | Emergency exit            | Quick Actions         |
+| ✕ Individual Close | Selective management      | Position Table        |
+| 🎯 Bracket Orders  | Auto TP/SL with R:R       | Trading Panel         |
+| 📍 Position Marker | Live P&L tracking         | Chart Overlay         |
+| 100 LONG/SHORT     | Clear position type       | Position Table        |
 
 ---
 
 ## 💡 **PRO TIPS:**
 
 1. **Use Bracket Orders for Every Trade**
+
    - Protects capital with predefined risk
    - Takes emotion out of TP/SL placement
    - 1:2 ratio is optimal for most strategies
 
 2. **Monitor Position Marker**
+
    - Glance at top-right for quick P&L check
    - No need to scroll to positions table
    - Color tells you profit (green) or loss (red)
 
 3. **FLIP Instead of Close + New Order**
+
    - Saves time (one click vs two)
    - Reduces execution risk
    - Keeps same position size
 
 4. **Use Close All Sparingly**
+
    - Great for emergencies
    - Good for end of day
    - Don't use if you want to keep some positions!
@@ -479,21 +528,25 @@ Look for errors like:
 ## 📞 **SUPPORT:**
 
 **Check Status:**
+
 ```bash
 ./check-quick.sh
 ```
 
 **View Logs:**
+
 ```bash
 ssh root@165.227.104.40 'pm2 logs trading-app'
 ```
 
 **Restart App:**
+
 ```bash
 ssh root@165.227.104.40 'pm2 restart trading-app'
 ```
 
 **Check Orders:**
+
 ```bash
 ./diagnose-orders.sh
 ```
@@ -503,6 +556,7 @@ ssh root@165.227.104.40 'pm2 restart trading-app'
 ## 🎉 **CONGRATULATIONS!**
 
 **Phase 2 is COMPLETE!** You now have a fully-featured Order Execution Module with:
+
 - ✅ Position flipping
 - ✅ Bulk position management
 - ✅ Auto risk/reward orders
@@ -514,14 +568,15 @@ ssh root@165.227.104.40 'pm2 restart trading-app'
 ---
 
 **Deployment Command:**
+
 ```bash
 cd /Users/dev/Documents/tradingview && chmod +x deploy-phase2.sh && ./deploy-phase2.sh
 ```
 
 **Access UI:**
+
 ```
 http://165.227.104.40:3000/desktop
 ```
 
 **HAPPY TRADING! 💰**
-
