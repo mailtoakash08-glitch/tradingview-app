@@ -139,6 +139,55 @@ class IbkrClient {
       }
     );
 
+    // Execution details (backup for orderStatus)
+    this.ib.on(
+      EventName.execDetails,
+      (reqId: number, contract: Contract, execution: any) => {
+        logger.info("Execution received", {
+          orderId: execution.orderId,
+          symbol: contract.symbol,
+          side: execution.side,
+          shares: execution.shares,
+          price: execution.price,
+          time: execution.time,
+        });
+
+        // Find tracked order by IBKR order ID
+        const trackedOrderId = this.orderIdMap.get(execution.orderId);
+        if (!trackedOrderId) {
+          logger.warn("Execution for unknown order", {
+            ibkrOrderId: execution.orderId,
+          });
+          return;
+        }
+
+        // Get order details
+        const orderDetails = orderTracker.getOrderById(trackedOrderId);
+        if (!orderDetails) {
+          logger.warn("Order details not found", { trackedOrderId });
+          return;
+        }
+
+        // Update position with execution
+        positionManager.handleOrderFill({
+          orderId: trackedOrderId,
+          symbol: contract.symbol!,
+          action: execution.side === "BOT" ? "BUY" : "SELL",
+          quantity: execution.shares,
+          fillPrice: execution.price,
+          commission: execution.commission || 0,
+          timestamp: new Date(),
+        });
+
+        logger.info("Position updated from execution", {
+          symbol: contract.symbol,
+          trackedOrderId,
+          shares: execution.shares,
+          price: execution.price,
+        });
+      }
+    );
+
     this.ib.on(
       EventName.openOrder,
       (orderId: number, contract: Contract, order: Order, orderState: any) => {
@@ -225,6 +274,10 @@ class IbkrClient {
           account: config.ibkr.accountId,
         });
       }
+
+      // Request executions for today to catch any filled orders
+      this.ib!.reqExecutions(-1, {});
+      logger.info("Requested today's executions to sync positions");
     } catch (error: any) {
       logger.error("Failed to connect to IBKR Gateway", {
         error: error.message,
