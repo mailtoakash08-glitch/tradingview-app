@@ -426,6 +426,7 @@ class IbkrClient {
 
       return {
         success: false,
+        orderId: "",
         message: error.message || "Order placement failed",
         raw: request,
       };
@@ -498,7 +499,7 @@ class IbkrClient {
       let ibkrOrderId: number | null = null;
 
       // Search through our mapping
-      for (const [ibId, trackedId] of this.ibkrOrderIdMap.entries()) {
+      for (const [ibId, trackedId] of this.orderIdMap.entries()) {
         if (trackedId === orderId) {
           ibkrOrderId = ibId;
           break;
