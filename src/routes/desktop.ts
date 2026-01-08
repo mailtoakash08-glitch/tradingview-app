@@ -1641,18 +1641,6 @@ router.get("/", (req: Request, res: Response) => {
       // Redraw position lines on chart
       if (chart) redrawOrderLines();
     }
-            <td>
-              <button class="action-btn close-btn" onclick="closePosition('\${pos.symbol}', \${pos.quantity})" title="Close Position">
-                ✕
-              </button>
-              <button class="action-btn flip-btn" onclick="flipPosition('\${pos.symbol}', \${pos.quantity})" title="Flip Position">
-                🔄
-              </button>
-            </td>
-          </tr>
-        \`;
-      }).join('');
-    }
 
     // Update Position Marker Overlay
     function updatePositionMarker(position) {
