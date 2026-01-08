@@ -1344,12 +1344,18 @@ router.get("/", (req: Request, res: Response) => {
         const response = await fetch('/api/dashboard/orders');
         const data = await response.json();
         
-        if (response.ok && data.orders) {
+        console.log('Orders API response:', data); // Debug logging
+        
+        if (response.ok && data.data && data.data.orders) {
+          console.log('Total orders:', data.data.orders.length); // Debug
+          
           // Filter for pending stop orders only
-          pendingOrders = data.orders.filter(order => 
+          pendingOrders = data.data.orders.filter(order => 
             (order.orderType === 'STP' || order.orderType === 'TRAIL') &&
             (order.status === 'PENDING' || order.status === 'PreSubmitted' || order.status === 'Submitted')
           );
+          
+          console.log('Pending stop orders:', pendingOrders.length); // Debug
           updatePendingOrdersTable();
         }
       } catch (error) {
