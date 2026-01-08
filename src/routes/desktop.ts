@@ -570,6 +570,75 @@ router.get("/", (req: Request, res: Response) => {
       color: #fff;
     }
 
+    /* Pending Orders Section */
+    .pending-orders-section {
+      grid-column: 1 / 4;
+      background: #1E222D;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .pending-orders-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .pending-orders-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #D1D4DC;
+    }
+
+    #pendingOrdersTable {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #pendingOrdersTable th {
+      background: #131722;
+      padding: 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: #787B86;
+      border-bottom: 1px solid #2A2E39;
+    }
+
+    #pendingOrdersTable td {
+      padding: 12px;
+      border-bottom: 1px solid #2A2E39;
+      font-size: 13px;
+      color: #D1D4DC;
+    }
+
+    #pendingOrdersTable tr:hover {
+      background: rgba(42, 46, 57, 0.3);
+    }
+
+    .order-trigger {
+      color: #FF9800;
+      font-weight: 600;
+    }
+
+    .order-side-buy {
+      color: #089981;
+      font-weight: 600;
+    }
+
+    .order-side-sell {
+      color: #F23645;
+      font-weight: 600;
+    }
+
+    .order-status-pending {
+      color: #FF9800;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
     /* Position Markers on Chart */
     .position-marker {
       position: absolute;
@@ -700,8 +769,11 @@ router.get("/", (req: Request, res: Response) => {
         </div>
 
         <div class="form-group" id="stopPriceGroup" style="display:none;">
-          <label>Stop Price</label>
+          <label>🎯 Stop Price (Trigger)</label>
           <input type="number" id="stopPrice" step="0.01" placeholder="150.00" />
+          <small style="color: #787B86; font-size: 11px; display: block; margin-top: 4px;">
+            Order triggers when price reaches this level
+          </small>
         </div>
 
         <div class="form-group" id="trailingAmountGroup" style="display:none;">
@@ -811,6 +883,35 @@ router.get("/", (req: Request, res: Response) => {
         </table>
       </div>
     </div>
+
+    <!-- Pending Orders Section -->
+    <div class="pending-orders-section">
+      <div class="pending-orders-header">
+        <div class="pending-orders-title">⏱️ Pending Stop Orders</div>
+        <button class="refresh-btn" id="refreshOrdersBtn" title="Refresh Orders">↻</button>
+      </div>
+      
+      <div id="pendingOrdersContainer">
+        <table id="pendingOrdersTable">
+          <thead>
+            <tr>
+              <th>SYMBOL</th>
+              <th>TYPE</th>
+              <th>TRIGGER PRICE</th>
+              <th>QUANTITY</th>
+              <th>SIDE</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="pendingOrdersBody">
+            <tr>
+              <td colspan="7" class="empty-state">No pending stop orders</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -818,6 +919,7 @@ router.get("/", (req: Request, res: Response) => {
     let currentSymbol = 'DVLT';
     let tvWidget = null;
     let positions = [];
+    let pendingOrders = []; // Track pending stop orders
     let accountData = {
       balance: 0,
       unrealizedPnL: 0,
@@ -894,6 +996,17 @@ router.get("/", (req: Request, res: Response) => {
     function selectSymbol(symbol) {
       currentSymbol = symbol;
       document.getElementById('symbol').value = symbol;
+      
+      // Auto-select Stop Market for watchlist picks (your workflow)
+      const orderTypeSelect = document.getElementById('orderType');
+      if (orderTypeSelect.value === 'MKT') {
+        // Only change to stop if currently on market order
+        orderTypeSelect.value = 'STP';
+        // Trigger change event to show stop price field
+        const event = new Event('change');
+        orderTypeSelect.dispatchEvent(event);
+      }
+      
       initChart(symbol);
       
       // Update active state
@@ -905,6 +1018,9 @@ router.get("/", (req: Request, res: Response) => {
       if (activeItem) {
         activeItem.classList.add('active');
       }
+      
+      // Show notification hint
+      showNotification('Info', 'Symbol selected: ' + symbol + ' - Ready for stop order', 'success');
     }
 
     // Render watchlist
@@ -1222,6 +1338,81 @@ router.get("/", (req: Request, res: Response) => {
       }
     }
 
+    // Fetch Pending Orders
+    async function fetchPendingOrders() {
+      try {
+        const response = await fetch('/api/dashboard/orders');
+        const data = await response.json();
+        
+        if (response.ok && data.orders) {
+          // Filter for pending stop orders only
+          pendingOrders = data.orders.filter(order => 
+            (order.orderType === 'STP' || order.orderType === 'TRAIL') &&
+            (order.status === 'PENDING' || order.status === 'PreSubmitted' || order.status === 'Submitted')
+          );
+          updatePendingOrdersTable();
+        }
+      } catch (error) {
+        console.error('Error fetching pending orders:', error);
+      }
+    }
+
+    // Update Pending Orders Table
+    function updatePendingOrdersTable() {
+      const tbody = document.getElementById('pendingOrdersBody');
+      
+      if (pendingOrders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No pending stop orders</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = pendingOrders.map(order => {
+        const sideClass = order.action === 'BUY' ? 'order-side-buy' : 'order-side-sell';
+        const triggerPrice = order.stopPrice || order.trailingAmount || '-';
+        
+        return \`
+          <tr>
+            <td class="symbol-cell">\${order.symbol}</td>
+            <td>\${order.orderType === 'TRAIL' ? 'TRAILING' : 'STOP'}</td>
+            <td class="order-trigger">$\${typeof triggerPrice === 'number' ? triggerPrice.toFixed(2) : triggerPrice}</td>
+            <td>\${order.quantity}</td>
+            <td class="\${sideClass}">\${order.action}</td>
+            <td class="order-status-pending">\${order.status || 'PENDING'}</td>
+            <td>
+              <button class="action-btn close-btn" onclick="cancelOrder('\${order.orderId}')" title="Cancel Order">
+                ❌
+              </button>
+            </td>
+          </tr>
+        \`;
+      }).join('');
+    }
+
+    // Cancel Order
+    async function cancelOrder(orderId) {
+      if (!confirm('Cancel this stop order?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(\`/api/orders/\${orderId}/cancel\`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showNotification('Cancelled', 'Order cancelled successfully', 'success');
+          setTimeout(() => fetchPendingOrders(), 1000);
+        } else {
+          showNotification('Error', result.error || 'Failed to cancel order', 'error');
+        }
+      } catch (error) {
+        showNotification('Error', 'Network error: ' + error.message, 'error');
+      }
+    }
+
     // Update Positions Table
     function updatePositionsTable() {
       const tbody = document.getElementById('positionsBody');
@@ -1514,6 +1705,13 @@ router.get("/", (req: Request, res: Response) => {
     document.getElementById('refreshBtn').addEventListener('click', () => {
       fetchPositions();
       fetchAccountSummary();
+      fetchPendingOrders();
+    });
+
+    // Refresh Orders Button
+    document.getElementById('refreshOrdersBtn').addEventListener('click', () => {
+      fetchPendingOrders();
+      showNotification('Refreshed', 'Pending orders updated', 'success');
     });
 
     // Flip Button
@@ -1526,6 +1724,7 @@ router.get("/", (req: Request, res: Response) => {
     setInterval(() => {
       fetchPositions();
       fetchAccountSummary();
+      fetchPendingOrders();
     }, 10000);
 
     // Initialize on page load - wait for TradingView library
@@ -1562,6 +1761,7 @@ router.get("/", (req: Request, res: Response) => {
     
     fetchPositions();
     fetchAccountSummary();
+    fetchPendingOrders();
   </script>
 </body>
 </html>
