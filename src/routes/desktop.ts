@@ -1141,7 +1141,6 @@ router.get("/", (req: Request, res: Response) => {
         });
 
         // Fetch and display data for the symbol
-        fetch Real-time data
         fetchChartData(symbol);
 
         // Handle window resize
@@ -1229,11 +1228,11 @@ router.get("/", (req: Request, res: Response) => {
 
       if (order.orderType === 'STP') {
         color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
-        title = `${order.action} STOP @ $${price.toFixed(2)}`;
+        title = order.action + ' STOP @ $' + price.toFixed(2);
         lineStyle = LightweightCharts.LineStyle.Dashed;
       } else if (order.orderType === 'LMT') {
         color = '#FFA726';
-        title = `${order.action} LIMIT @ $${price.toFixed(2)}`;
+        title = order.action + ' LIMIT @ $' + price.toFixed(2);
         lineStyle = LightweightCharts.LineStyle.Dotted;
       }
 
@@ -1258,7 +1257,7 @@ router.get("/", (req: Request, res: Response) => {
 
       const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
       const side = position.quantity > 0 ? 'LONG' : 'SHORT';
-      const title = `${Math.abs(position.quantity)} ${side} @ $${position.entryPrice.toFixed(2)}`;
+      const title = Math.abs(position.quantity) + ' ' + side + ' @ $' + position.entryPrice.toFixed(2);
 
       const priceLine = candleSeries.createPriceLine({
         price: position.entryPrice,
