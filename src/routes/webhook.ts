@@ -108,7 +108,7 @@ router.post("/tradingview", async (req: Request, res: Response) => {
     });
 
     // Place order with selected broker
-    const selectedBroker = signal.broker || "ibkr";
+    const selectedBroker: "ibkr" | "lightspeed" | "demo" = signal.broker || "ibkr";
     logger.info(
       `[${requestId}] Step 6: Placing order with ${selectedBroker.toUpperCase()}`
     );

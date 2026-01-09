@@ -74,6 +74,8 @@ class OrderParser {
       symbol,
       action: alert.action,
       quantity,
+      // Extract broker selection (ibkr, lightspeed, or demo)
+      broker: alert.broker as "ibkr" | "lightspeed" | "demo" | undefined,
       // Default to true for extended hours trading (client requirement)
       // Can be explicitly set to false in alert if regular hours only
       outsideRth: alert.outsideRth !== undefined ? alert.outsideRth : true,

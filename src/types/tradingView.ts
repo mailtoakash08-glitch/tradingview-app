@@ -23,6 +23,7 @@ export interface TradingViewAlert {
   symbol: string;
   action: TradingViewAction;
   qty?: number | null;
+  broker?: 'ibkr' | 'lightspeed' | 'demo'; // Broker selection
   tp?: number | null;
   sl?: number | null;
   stopPrice?: number | null; // For STOP MARKET orders (entries)
