@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# Force Browser Cache Clear for Demo UI Fix
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔄 FORCE CLEAR BROWSER CACHE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+echo "Your browser is caching the old JavaScript code."
+echo "Follow these steps to see the fix:"
+echo ""
+
+echo "📋 STEP 1: Hard Refresh (Try First)"
+echo "  Mac:     Cmd + Shift + R"
+echo "  Windows: Ctrl + Shift + F5"
+echo "  Or:      Ctrl + F5"
+echo ""
+
+echo "📋 STEP 2: If Step 1 Doesn't Work - Clear Cache Manually"
+echo ""
+echo "Chrome/Brave:"
+echo "  1. Press F12 (open DevTools)"
+echo "  2. Right-click the Refresh button"
+echo "  3. Select 'Empty Cache and Hard Reload'"
+echo ""
+
+echo "Safari:"
+echo "  1. Go to Safari → Settings → Advanced"
+echo "  2. Enable 'Show Develop menu'"
+echo "  3. Develop → Empty Caches"
+echo "  4. Refresh page (Cmd+R)"
+echo ""
+
+echo "Firefox:"
+echo "  1. Press Ctrl+Shift+Delete"
+echo "  2. Select 'Cached Web Content'"
+echo "  3. Click 'Clear Now'"
+echo "  4. Refresh page"
+echo ""
+
+echo "📋 STEP 3: Verify Fix is Loaded"
+echo "  1. Press F12 (open DevTools)"
+echo "  2. Click 'Console' tab"
+echo "  3. Refresh page"
+echo "  4. Look for any errors"
+echo "  5. Type: fetchPositions"
+echo "  6. Should show the function code"
+echo ""
+
+echo "📋 STEP 4: Test Demo Order"
+echo "  1. Select: 🎮 DEMO MODE"
+echo "  2. Symbol: AAPL"
+echo "  3. Quantity: 10"
+echo "  4. Click BUY"
+echo "  5. Wait 2-3 seconds"
+echo "  6. Position should appear!"
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "💡 QUICK FIX: Open in Private/Incognito Window"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "This bypasses all cache issues:"
+echo ""
+echo "Chrome: Cmd+Shift+N (Mac) or Ctrl+Shift+N (Windows)"
+echo "Safari: Cmd+Shift+N"
+echo "Firefox: Cmd+Shift+P (Mac) or Ctrl+Shift+P (Windows)"
+echo ""
+echo "Then go to: http://165.227.104.40:3000/desktop"
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+

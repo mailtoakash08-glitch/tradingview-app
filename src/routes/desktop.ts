@@ -1628,10 +1628,13 @@ router.get("/", (req: Request, res: Response) => {
       updatePositionMarker(currentSymbolPosition);
 
       tbody.innerHTML = positions.map(pos => {
+        // Handle both avgPrice and avgEntryPrice for compatibility
+        const avgPrice = pos.avgEntryPrice || pos.avgPrice || 0;
+        const currentPrice = pos.currentPrice || 0;
         const pnl = pos.unrealizedPnL || 0;
-        const pnlPercent = pos.avgPrice > 0 ? ((pos.currentPrice - pos.avgPrice) / pos.avgPrice * 100) : 0;
+        const pnlPercent = avgPrice > 0 ? ((currentPrice - avgPrice) / avgPrice * 100) : 0;
         const pnlClass = pnl >= 0 ? 'positive' : 'negative';
-        const marketValue = pos.currentPrice * pos.quantity;
+        const marketValue = currentPrice * pos.quantity;
         const positionType = pos.quantity > 0 ? 'LONG' : 'SHORT';
         const absQuantity = Math.abs(pos.quantity);
 
@@ -1639,8 +1642,8 @@ router.get("/", (req: Request, res: Response) => {
           <tr>
             <td class="symbol-cell">\${pos.symbol}</td>
             <td>\${absQuantity} \${positionType}</td>
-            <td>$\${pos.avgPrice.toFixed(2)}</td>
-            <td>$\${pos.currentPrice.toFixed(2)}</td>
+            <td>$\${avgPrice.toFixed(2)}</td>
+            <td>$\${currentPrice.toFixed(2)}</td>
             <td>$\${Math.abs(marketValue).toFixed(2)}</td>
             <td class="\${pnlClass}">\${pnl >= 0 ? '+' : ''}$\${pnl.toFixed(2)}</td>
             <td class="\${pnlClass}">\${pnl >= 0 ? '+' : ''}\${pnlPercent.toFixed(2)}%</td>
