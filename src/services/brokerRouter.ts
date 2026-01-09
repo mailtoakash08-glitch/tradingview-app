@@ -3,11 +3,12 @@
  * Routes orders to the appropriate broker (IBKR or Lightspeed)
  */
 
-import { IbkrOrderRequest, IbkrOrderResponse } from '../types/order';
-import { ibkrClient } from './ibkrClient';
-import { lightspeedClient } from './lightspeedClient';
-import { logger } from '../logger';
-import config from '../config';
+import { IbkrOrderRequest, IbkrOrderResponse } from "../types/order";
+import { ibkrClient } from "./ibkrClient";
+import { lightspeedClient } from "./lightspeedClient";
+import { demoClient } from "./demoClient";
+import { logger } from "../logger";
+import config from "../config";
 
 class BrokerRouter {
   /**
@@ -15,9 +16,9 @@ class BrokerRouter {
    */
   async placeOrder(
     orderRequest: IbkrOrderRequest,
-    broker: 'ibkr' | 'lightspeed' = config.defaultBroker
+    broker: "ibkr" | "lightspeed" | "demo" = config.defaultBroker
   ): Promise<IbkrOrderResponse> {
-    logger.info('Routing order to broker', {
+    logger.info("Routing order to broker", {
       broker,
       symbol: orderRequest.symbol,
       action: orderRequest.action,
@@ -26,22 +27,29 @@ class BrokerRouter {
 
     try {
       switch (broker) {
-        case 'lightspeed':
+        case "demo":
+          if (!demoClient.isConnected()) {
+            logger.warn("Demo client not connected, initializing...");
+            await demoClient.connect();
+          }
+          return await demoClient.placeOrder(orderRequest);
+
+        case "lightspeed":
           if (!config.lightspeed.enabled || !lightspeedClient.isConnected()) {
-            logger.warn('Lightspeed not available, falling back to IBKR');
+            logger.warn("Lightspeed not available, falling back to IBKR");
             return await ibkrClient.placeOrder(orderRequest);
           }
           return await lightspeedClient.placeOrder(orderRequest);
 
-        case 'ibkr':
+        case "ibkr":
         default:
           if (!ibkrClient.isConnected()) {
-            throw new Error('IBKR not connected');
+            throw new Error("IBKR not connected");
           }
           return await ibkrClient.placeOrder(orderRequest);
       }
     } catch (error: any) {
-      logger.error('Failed to place order', {
+      logger.error("Failed to place order", {
         broker,
         error: error.message,
       });
@@ -54,20 +62,22 @@ class BrokerRouter {
    */
   async cancelOrder(
     orderId: string,
-    broker: 'ibkr' | 'lightspeed'
+    broker: "ibkr" | "lightspeed" | "demo"
   ): Promise<boolean> {
-    logger.info('Cancelling order', { broker, orderId });
+    logger.info("Cancelling order", { broker, orderId });
 
     try {
       switch (broker) {
-        case 'lightspeed':
+        case "demo":
+          return await demoClient.cancelOrder(orderId);
+        case "lightspeed":
           return await lightspeedClient.cancelOrder(orderId);
-        case 'ibkr':
+        case "ibkr":
         default:
           return await ibkrClient.cancelOrder(orderId);
       }
     } catch (error: any) {
-      logger.error('Failed to cancel order', {
+      logger.error("Failed to cancel order", {
         broker,
         orderId,
         error: error.message,
@@ -82,10 +92,12 @@ class BrokerRouter {
   getBrokerStatus(): {
     ibkr: boolean;
     lightspeed: boolean;
+    demo: boolean;
   } {
     return {
       ibkr: ibkrClient.isConnected(),
       lightspeed: lightspeedClient.isConnected(),
+      demo: demoClient.isConnected(),
     };
   }
 
@@ -93,13 +105,13 @@ class BrokerRouter {
    * Initialize all enabled brokers
    */
   async initializeBrokers(): Promise<void> {
-    logger.info('Initializing brokers');
+    logger.info("Initializing brokers");
 
     // Always initialize IBKR
     try {
       await ibkrClient.connect();
     } catch (error: any) {
-      logger.error('Failed to initialize IBKR', { error: error.message });
+      logger.error("Failed to initialize IBKR", { error: error.message });
     }
 
     // Initialize Lightspeed if enabled
@@ -107,17 +119,23 @@ class BrokerRouter {
       try {
         await lightspeedClient.connect();
       } catch (error: any) {
-        logger.error('Failed to initialize Lightspeed', {
+        logger.error("Failed to initialize Lightspeed", {
           error: error.message,
         });
       }
     }
 
-    logger.info('Broker initialization complete', {
+    // Always initialize Demo mode
+    try {
+      await demoClient.connect();
+    } catch (error: any) {
+      logger.error("Failed to initialize Demo", { error: error.message });
+    }
+
+    logger.info("Broker initialization complete", {
       status: this.getBrokerStatus(),
     });
   }
 }
 
 export const brokerRouter = new BrokerRouter();
-

@@ -228,6 +228,11 @@ router.get("/broker-status", (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     brokers: {
+      demo: {
+        connected: status.demo,
+        status: status.demo ? "Connected" : "Disconnected",
+        note: "🎮 DEMO MODE - No real money, instant fills",
+      },
       ibkr: {
         connected: status.ibkr,
         status: status.ibkr ? "Connected" : "Disconnected",

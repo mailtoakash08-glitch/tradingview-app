@@ -12,7 +12,7 @@ export interface TradeSignal {
   symbol: string;
   action: TradingViewAction;
   quantity: number;
-  broker?: "ibkr" | "lightspeed"; // Broker selection
+  broker?: "ibkr" | "lightspeed" | "demo"; // Broker selection (added demo)
   takeProfitPrice?: number;
   stopLossPrice?: number;
   stopPrice?: number; // For STOP MARKET entry orders

@@ -746,6 +746,7 @@ router.get("/", (req: Request, res: Response) => {
         <div class="form-group">
           <label>Broker</label>
           <select id="broker">
+            <option value="demo">🎮 DEMO MODE (No Real Money)</option>
             <option value="ibkr">🏦 Interactive Brokers</option>
             <option value="lightspeed">⚡ Lightspeed (Faster, Lower Fees)</option>
           </select>
@@ -1376,6 +1377,11 @@ router.get("/", (req: Request, res: Response) => {
         return;
       }
 
+      // Show demo mode notification
+      if (broker === 'demo') {
+        showNotification('🎮 DEMO MODE', 'Order will fill in 2 seconds (simulated)', 'info');
+      }
+
       // Build order payload
       const payload = {
         strategy: 'manual_bmnr',
@@ -1442,15 +1448,15 @@ router.get("/", (req: Request, res: Response) => {
         payload.bracketOrder = true;
       } else {
         // Manual TP/SL
-        const takeProfit = parseFloat(document.getElementById('takeProfit').value);
-        const stopLoss = parseFloat(document.getElementById('stopLoss').value);
-        
-        if (takeProfit && takeProfit > 0) {
-          payload.takeProfit = takeProfit;
-        }
-        
-        if (stopLoss && stopLoss > 0) {
-          payload.stopLoss = stopLoss;
+      const takeProfit = parseFloat(document.getElementById('takeProfit').value);
+      const stopLoss = parseFloat(document.getElementById('stopLoss').value);
+      
+      if (takeProfit && takeProfit > 0) {
+        payload.takeProfit = takeProfit;
+      }
+      
+      if (stopLoss && stopLoss > 0) {
+        payload.stopLoss = stopLoss;
         }
       }
 
@@ -1931,7 +1937,7 @@ router.get("/", (req: Request, res: Response) => {
     if (typeof LightweightCharts !== 'undefined') {
       console.log('LightweightCharts library found immediately');
       renderWatchlist();
-      initChart(currentSymbol);
+    initChart(currentSymbol);
     } else {
       console.log('Waiting for LightweightCharts library to load...');
       // Wait for LightweightCharts library to load
