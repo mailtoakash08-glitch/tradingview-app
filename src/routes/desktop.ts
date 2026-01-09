@@ -1683,9 +1683,6 @@ router.get("/", (req: Request, res: Response) => {
       const absQuantity = Math.abs(position.quantity);
 
       // Update marker content
-      const avgPrice = position.avgEntryPrice || position.avgPrice || 0;
-      const currentPrice = position.currentPrice || 0;
-      
       document.getElementById('markerSymbol').textContent = position.symbol;
       document.getElementById('markerType').textContent = positionType;
       document.getElementById('markerQty').textContent = absQuantity;
