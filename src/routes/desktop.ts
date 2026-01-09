@@ -1266,10 +1266,11 @@ router.get("/", (req: Request, res: Response) => {
 
       const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
       const side = position.quantity > 0 ? 'LONG' : 'SHORT';
-      const title = Math.abs(position.quantity) + ' ' + side + ' @ $' + position.entryPrice.toFixed(2);
+      const entryPrice = position.avgEntryPrice || position.entryPrice || position.avgPrice || 0;
+      const title = Math.abs(position.quantity) + ' ' + side + ' @ $' + entryPrice.toFixed(2);
 
       const priceLine = candleSeries.createPriceLine({
-        price: position.entryPrice,
+        price: entryPrice,
         color: color,
         lineWidth: 3,
         lineStyle: LightweightCharts.LineStyle.Solid,
@@ -1278,7 +1279,7 @@ router.get("/", (req: Request, res: Response) => {
       });
 
       positionLines[position.symbol] = priceLine;
-      console.log('Drew position line:', position.symbol, 'at price:', position.entryPrice);
+      console.log('Drew position line:', position.symbol, 'at price:', entryPrice);
     }
 
     // Redraw all order lines for current symbol
@@ -1674,17 +1675,22 @@ router.get("/", (req: Request, res: Response) => {
       }
 
       const pnl = position.unrealizedPnL || 0;
-      const pnlPercent = position.avgPrice > 0 ? 
-        ((position.currentPrice - position.avgPrice) / position.avgPrice * 100) : 0;
+      const avgPrice = position.avgEntryPrice || position.avgPrice || 0;
+      const currentPrice = position.currentPrice || 0;
+      const pnlPercent = avgPrice > 0 ? 
+        ((currentPrice - avgPrice) / avgPrice * 100) : 0;
       const positionType = position.quantity > 0 ? 'LONG' : 'SHORT';
       const absQuantity = Math.abs(position.quantity);
 
       // Update marker content
+      const avgPrice = position.avgEntryPrice || position.avgPrice || 0;
+      const currentPrice = position.currentPrice || 0;
+      
       document.getElementById('markerSymbol').textContent = position.symbol;
       document.getElementById('markerType').textContent = positionType;
       document.getElementById('markerQty').textContent = absQuantity;
-      document.getElementById('markerEntry').textContent = '$' + position.avgPrice.toFixed(2);
-      document.getElementById('markerCurrent').textContent = '$' + position.currentPrice.toFixed(2);
+      document.getElementById('markerEntry').textContent = '$' + avgPrice.toFixed(2);
+      document.getElementById('markerCurrent').textContent = '$' + currentPrice.toFixed(2);
       
       const pnlElement = document.getElementById('markerPnL');
       pnlElement.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + 
