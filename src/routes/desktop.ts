@@ -1494,7 +1494,8 @@ router.get("/", (req: Request, res: Response) => {
         const data = await response.json();
         
         if (response.ok) {
-          positions = data.positions || [];
+          // Handle nested data structure: data.data.positions
+          positions = data.data?.positions || data.positions || [];
           updatePositionsTable();
         }
       } catch (error) {
@@ -1506,14 +1507,16 @@ router.get("/", (req: Request, res: Response) => {
     async function fetchAccountSummary() {
       try {
         const response = await fetch('/api/dashboard/account');
-        const data = await response.json();
+        const result = await response.json();
         
         if (response.ok) {
+          // Handle nested data structure: result.data
+          const data = result.data || result;
           accountData = {
             balance: data.balance || 0,
-            unrealizedPnL: data.unrealizedPnL || 0,
-            realizedPnL: data.realizedPnL || 0,
-            totalPnL: (data.unrealizedPnL || 0) + (data.realizedPnL || 0)
+            unrealizedPnL: data.totalPnL || 0, // Use totalPnL from backend
+            realizedPnL: data.dayPnL || 0,
+            totalPnL: data.totalPnL || 0
           };
           updateAccountSummary();
         }

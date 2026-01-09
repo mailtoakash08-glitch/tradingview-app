@@ -15,6 +15,7 @@ webhook/tradingview1
 ```
 
 **Symptoms:**
+
 - Demo notification appeared briefly
 - Error notification appeared immediately after
 - Order never filled
@@ -27,6 +28,7 @@ webhook/tradingview1
 The `broker` field from the Desktop UI was **not being extracted** in the `orderParser.parseAlert()` function.
 
 **Flow:**
+
 1. Desktop UI sends: `{ ..., broker: "demo", ... }`
 2. `orderParser.parseAlert()` parses the alert
 3. **Missing:** Extract `broker` field into `TradeSignal`
@@ -48,7 +50,7 @@ export interface TradingViewAlert {
   symbol: string;
   action: TradingViewAction;
   qty?: number | null;
-  broker?: 'ibkr' | 'lightspeed' | 'demo'; // ← ADDED
+  broker?: "ibkr" | "lightspeed" | "demo"; // ← ADDED
   tp?: number | null;
   sl?: number | null;
   stopPrice?: number | null;
@@ -95,6 +97,7 @@ ssh root@165.227.104.40 "cd /root/trading-app && git pull && npm run build && pm
 ```
 
 **Result:**
+
 ```
 ✅ Demo broker connected
 ✅ Order placed successfully! Order ID: DEMO-1000
@@ -113,6 +116,7 @@ ssh root@165.227.104.40 "cd /root/trading-app && git pull && npm run build && pm
 4. Click **BUY**
 
 **Expected:**
+
 - ✅ "🎮 DEMO MODE: Order will fill in 2 seconds" notification
 - ✅ After 2 seconds: "Order placed: BUY 10 AAPL" success notification
 - ✅ Position appears in positions table
@@ -163,19 +167,19 @@ Position appears in UI ✅
 
 ### Brokers
 
-| Broker | Status | Purpose |
-|--------|--------|---------|
-| **🎮 Demo** | ✅ Connected | Testing, training, no risk |
-| **🏦 IBKR** | ❌ Disconnected | Real trading (needs IB Gateway running) |
-| **⚡ Lightspeed** | ❌ Disabled | Fast execution (not configured) |
+| Broker            | Status          | Purpose                                 |
+| ----------------- | --------------- | --------------------------------------- |
+| **🎮 Demo**       | ✅ Connected    | Testing, training, no risk              |
+| **🏦 IBKR**       | ❌ Disconnected | Real trading (needs IB Gateway running) |
+| **⚡ Lightspeed** | ❌ Disabled     | Fast execution (not configured)         |
 
 ### Endpoints
 
-| Endpoint | Status |
-|----------|--------|
-| http://165.227.104.40:3000/desktop | ✅ Working |
-| http://165.227.104.40:3000/admin/broker-status | ✅ Working |
-| http://165.227.104.40:3000/webhook/tradingview | ✅ Working |
+| Endpoint                                           | Status     |
+| -------------------------------------------------- | ---------- |
+| http://165.227.104.40:3000/desktop                 | ✅ Working |
+| http://165.227.104.40:3000/admin/broker-status     | ✅ Working |
+| http://165.227.104.40:3000/webhook/tradingview     | ✅ Working |
 | http://165.227.104.40:3000/api/dashboard/positions | ✅ Working |
 
 ---
@@ -198,12 +202,14 @@ http://165.227.104.40:3000/desktop
 ### For Real Trading (Use IBKR)
 
 1. **Start IB Gateway:**
+
    ```bash
    ssh root@165.227.104.40
    # Start IB Gateway via VNC or headless script
    ```
 
 2. **Verify connection:**
+
    ```bash
    curl http://165.227.104.40:3000/admin/broker-status
    # Should show: ibkr.connected = true
@@ -230,14 +236,16 @@ http://165.227.104.40:3000/desktop
 **Problem:** Demo mode orders failed with 500 error  
 **Cause:** Broker field not extracted from alerts  
 **Fix:** Added broker extraction to orderParser  
-**Result:** ✅ Demo mode fully working  
+**Result:** ✅ Demo mode fully working
 
 **Test command:**
+
 ```bash
 ./test-demo-order.sh
 ```
 
 **Use Demo mode to:**
+
 - ✅ Test UI features
 - ✅ Practice trading
 - ✅ Train new users
@@ -246,6 +254,7 @@ http://165.227.104.40:3000/desktop
 - ✅ Zero risk!
 
 **Switch to IBKR when:**
+
 - 🎯 Ready for real trading
 - 🎯 Need real market data
 - 🎯 Testing with small positions
@@ -253,4 +262,3 @@ http://165.227.104.40:3000/desktop
 ---
 
 **✅ Demo Mode is now production-ready!** 🎉
-
