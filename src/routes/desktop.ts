@@ -1959,17 +1959,17 @@ router.get("/", (req: Request, res: Response) => {
     document.getElementById('addWatchlistBtn').addEventListener('click', addToWatchlist);
     document.getElementById('watchlistSearch').addEventListener('keyup', filterWatchlist);
     
-    if (typeof LightweightCharts !== 'undefined') {
-      console.log('LightweightCharts library found immediately');
+    if (typeof TradingView !== 'undefined') {
+      console.log('TradingView library found immediately');
       renderWatchlist();
     initChart(currentSymbol);
     } else {
-      console.log('Waiting for LightweightCharts library to load...');
-      // Wait for LightweightCharts library to load
-      const checkLightweightCharts = setInterval(() => {
-        if (typeof LightweightCharts !== 'undefined') {
-          console.log('LightweightCharts library loaded!');
-          clearInterval(checkLightweightCharts);
+      console.log('Waiting for TradingView library to load...');
+      // Wait for TradingView library to load
+      const checkTradingView = setInterval(() => {
+        if (typeof TradingView !== 'undefined') {
+          console.log('TradingView library loaded!');
+          clearInterval(checkTradingView);
           renderWatchlist();
           initChart(currentSymbol);
         }
@@ -1977,9 +1977,9 @@ router.get("/", (req: Request, res: Response) => {
       
       // Timeout after 10 seconds
       setTimeout(() => {
-        if (typeof LightweightCharts === 'undefined') {
-          console.error('LightweightCharts library failed to load after 10 seconds');
-          alert('Chart library failed to load. Please check your internet connection and refresh.');
+        if (typeof TradingView === 'undefined') {
+          console.error('TradingView library failed to load after 10 seconds');
+          alert('TradingView chart library failed to load. Please check your internet connection and refresh.');
         }
       }, 10000);
     }
