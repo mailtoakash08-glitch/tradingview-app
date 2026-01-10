@@ -644,6 +644,7 @@ router.get("/", (req: Request, res: Response) => {
     .position-marker {
       position: absolute;
       left: 20px;
+      top: 80px;
       background: rgba(26, 26, 26, 0.95);
       border: 1px solid #2A2E39;
       border-radius: 6px;
@@ -653,6 +654,12 @@ router.get("/", (req: Request, res: Response) => {
       z-index: 1000;
       min-width: 200px;
       backdrop-filter: blur(10px);
+      cursor: move;
+      user-select: none;
+    }
+    
+    .position-marker:active {
+      cursor: grabbing;
     }
 
     .position-marker-title {
@@ -710,7 +717,7 @@ router.get("/", (req: Request, res: Response) => {
       <div id="tradingview_chart"></div>
       
       <!-- Position Marker Overlay -->
-      <div id="positionMarker" class="position-marker" style="display:none; top: 20px;">
+      <div id="positionMarker" class="position-marker" style="display:none;">
         <div class="position-marker-title">📍 Active Position</div>
         <div class="position-marker-item">
           <span>Symbol:</span>
@@ -1215,62 +1222,81 @@ router.get("/", (req: Request, res: Response) => {
       if (!tvWidget) return;
       
       try {
-        tvWidget.activeChart().onChartReady(() => {
-          // Clear existing shapes
-          tvWidget.activeChart().removeAllShapes();
+        // Wait for widget to be fully ready before drawing
+        tvWidget.onChartReady(() => {
+          const chart = tvWidget.activeChart();
+          
+          // Remove all existing shapes
+          try {
+            chart.removeAllShapes();
+          } catch (e) {
+            console.warn('Could not remove shapes:', e);
+          }
           
           // Draw position lines
           for (const position of positions) {
             if (position.symbol === currentSymbolData.symbol) {
-              const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
-              const side = position.quantity > 0 ? 'LONG' : 'SHORT';
-              const entryPrice = position.avgEntryPrice || position.avgPrice || 0;
-              
-              tvWidget.activeChart().createShape(
-                { time: Date.now() / 1000, price: entryPrice },
-                {
-                  shape: 'horizontal_line',
-                  overrides: {
-                    linecolor: color,
-                    linewidth: 2,
-                    linestyle: 0,
-                    showLabel: true,
-                    textcolor: color,
-                    text: Math.abs(position.quantity) + ' ' + side + ' @ $' + entryPrice.toFixed(2)
-                  }
+              try {
+                const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
+                const side = position.quantity > 0 ? 'LONG' : 'SHORT';
+                const entryPrice = position.avgEntryPrice || position.avgPrice || 0;
+                
+                if (entryPrice > 0) {
+                  chart.createShape(
+                    { time: Date.now() / 1000, price: entryPrice },
+                    {
+                      shape: 'horizontal_line',
+                      overrides: {
+                        linecolor: color,
+                        linewidth: 2,
+                        linestyle: 0,
+                        showLabel: true,
+                        textcolor: color,
+                        text: Math.abs(position.quantity) + ' ' + side + ' @ $' + entryPrice.toFixed(2)
+                      }
+                    }
+                  );
+                  console.log('Drew position line for', position.symbol);
                 }
-              );
+              } catch (e) {
+                console.warn('Could not draw position line:', e);
+              }
             }
           }
           
           // Draw pending order lines
           for (const order of pendingOrders) {
             if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
-              const price = order.stopPrice || order.limitPrice || 0;
-              if (!price) continue;
-              
-              const color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
-              const orderTypeLabel = order.orderType === 'STP' ? 'STOP' : 'LIMIT';
-              
-              tvWidget.activeChart().createShape(
-                { time: Date.now() / 1000, price: price },
-                {
-                  shape: 'horizontal_line',
-                  overrides: {
-                    linecolor: color,
-                    linewidth: 1,
-                    linestyle: 2,
-                    showLabel: true,
-                    textcolor: color,
-                    text: order.action + ' ' + orderTypeLabel + ' @ $' + price.toFixed(2)
+              try {
+                const price = order.stopPrice || order.limitPrice || 0;
+                if (!price || price <= 0) continue;
+                
+                const color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
+                const orderTypeLabel = order.orderType === 'STP' ? 'STOP' : 'LIMIT';
+                
+                chart.createShape(
+                  { time: Date.now() / 1000, price: price },
+                  {
+                    shape: 'horizontal_line',
+                    overrides: {
+                      linecolor: color,
+                      linewidth: 1,
+                      linestyle: 2,
+                      showLabel: true,
+                      textcolor: color,
+                      text: order.action + ' ' + orderTypeLabel + ' @ $' + price.toFixed(2)
+                    }
                   }
-                }
-              );
+                );
+                console.log('Drew order line for', order.orderId);
+              } catch (e) {
+                console.warn('Could not draw order line:', e);
+              }
             }
           }
         });
       } catch (error) {
-        console.error('Error drawing lines on TradingView:', error);
+        console.warn('TradingView chart not ready for drawing, skipping lines');
       }
     }
 
@@ -1951,6 +1977,49 @@ router.get("/", (req: Request, res: Response) => {
       fetchAccountSummary();
       fetchPendingOrders();
     }, 10000);
+    
+    // Make position marker draggable
+    const positionMarker = document.getElementById('positionMarker');
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    positionMarker.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+
+    function dragStart(e) {
+      if (e.target === positionMarker || positionMarker.contains(e.target)) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+        isDragging = true;
+      }
+    }
+
+    function drag(e) {
+      if (isDragging) {
+        e.preventDefault();
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+        xOffset = currentX;
+        yOffset = currentY;
+        setTranslate(currentX, currentY, positionMarker);
+      }
+    }
+
+    function dragEnd(e) {
+      initialX = currentX;
+      initialY = currentY;
+      isDragging = false;
+    }
+
+    function setTranslate(xPos, yPos, el) {
+      el.style.transform = 'translate3d(' + xPos + 'px, ' + yPos + 'px, 0)';
+    }
 
     // Initialize on page load - wait for TradingView library
     console.log('Page loaded, checking for TradingView library...');
