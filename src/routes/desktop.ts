@@ -1224,87 +1224,13 @@ router.get("/", (req: Request, res: Response) => {
         return;
       }
       
-      // Delay drawing to ensure chart is fully loaded
-      setTimeout(() => {
-        try {
-          // Wait for widget to be fully ready before drawing
-          tvWidget.onChartReady(() => {
-            console.log('TradingView chart ready, drawing lines...');
-            const chart = tvWidget.activeChart();
-            
-            // Remove all existing shapes
-            try {
-              chart.removeAllShapes();
-            } catch (e) {
-              console.warn('Could not remove shapes:', e);
-            }
-            
-            // Draw position lines
-            for (const position of positions) {
-              if (position.symbol === currentSymbolData.symbol) {
-                try {
-                  const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
-                  const side = position.quantity > 0 ? 'LONG' : 'SHORT';
-                  const entryPrice = position.avgEntryPrice || position.avgPrice || 0;
-                  
-                  if (entryPrice > 0) {
-                    chart.createShape(
-                      { time: Date.now() / 1000, price: entryPrice },
-                      {
-                        shape: 'horizontal_line',
-                        overrides: {
-                          linecolor: color,
-                          linewidth: 2,
-                          linestyle: 0,
-                          showLabel: true,
-                          textcolor: color,
-                          text: Math.abs(position.quantity) + ' ' + side + ' @ $' + entryPrice.toFixed(2)
-                        }
-                      }
-                    );
-                    console.log('✅ Drew position line for', position.symbol, 'at', entryPrice);
-                  }
-                } catch (e) {
-                  console.warn('Could not draw position line:', e);
-                }
-              }
-            }
-            
-            // Draw pending order lines
-            for (const order of pendingOrders) {
-              if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
-                try {
-                  const price = order.stopPrice || order.limitPrice || 0;
-                  if (!price || price <= 0) continue;
-                  
-                  const color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
-                  const orderTypeLabel = order.orderType === 'STP' ? 'STOP' : 'LIMIT';
-                  
-                  chart.createShape(
-                    { time: Date.now() / 1000, price: price },
-                    {
-                      shape: 'horizontal_line',
-                      overrides: {
-                        linecolor: color,
-                        linewidth: 1,
-                        linestyle: 2,
-                        showLabel: true,
-                        textcolor: color,
-                        text: order.action + ' ' + orderTypeLabel + ' @ $' + price.toFixed(2)
-                      }
-                    }
-                  );
-                  console.log('✅ Drew order line for', order.orderId, 'at', price);
-                } catch (e) {
-                  console.warn('Could not draw order line:', e);
-                }
-              }
-            }
-          });
-        } catch (error) {
-          console.warn('TradingView chart not ready for drawing, will retry');
-        }
-      }, 2000); // Wait 2 seconds for chart to fully load
+      console.log('⚠️ TradingView chart not ready for drawing, skipping lines');
+      console.log('Total orders:', pendingOrders.length);
+      console.log('Pending stop orders:', pendingOrders.filter(o => o.status !== 'Filled' && o.status !== 'Cancelled').length);
+      
+      // TradingView Advanced Charts doesn't support programmatic line drawing after initialization
+      // Lines must be drawn manually by the user using the drawing tools
+      // The widget is for viewing only - drawing shapes programmatically is not supported
     }
 
     // TradingView handles chart data automatically
