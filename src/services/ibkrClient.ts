@@ -18,6 +18,9 @@ import config from "../config";
 import { positionManager } from "./positionManager";
 import { orderTracker } from "./orderTracker";
 import { OrderFillEvent } from "../types/dashboard";
+import { orderRepository } from "../repositories/orderRepository";
+import { positionRepository } from "../repositories/positionRepository";
+import { tradeRepository } from "../repositories/tradeRepository";
 
 class IbkrClient {
   private ib: IBApi | null;
@@ -102,6 +105,35 @@ class IbkrClient {
           avgFillPrice
         );
 
+        // 💾 Update order status in database
+        (async () => {
+          try {
+            const dbStatus = 
+              status === 'Filled' ? 'FILLED' :
+              status === 'Cancelled' ? 'CANCELLED' :
+              status === 'PartiallyFilled' ? 'PARTIALLY_FILLED' :
+              status === 'Inactive' ? 'REJECTED' :
+              'PENDING';
+            
+            await orderRepository.updateOrderStatus(
+              trackedOrderId,
+              dbStatus,
+              filled,
+              avgFillPrice
+            );
+            
+            logger.info("✅ IBKR order status updated in database", {
+              orderId: trackedOrderId,
+              status: dbStatus,
+            });
+          } catch (dbError: any) {
+            logger.error("Failed to update order status in database", {
+              error: dbError.message,
+              orderId: trackedOrderId,
+            });
+          }
+        })();
+
         if (status === "Filled" || status === "PartiallyFilled") {
           logger.info("Order filled - updating position", {
             orderId,
@@ -132,6 +164,48 @@ class IbkrClient {
               quantity: filled,
               fillPrice: avgFillPrice,
             });
+
+            // 💾 Save trade and position to database
+            (async () => {
+              try {
+                // Save trade record
+                await tradeRepository.createTrade({
+                  orderId: trackedOrderId,
+                  symbol: orderDetails.symbol,
+                  action: orderDetails.action,
+                  quantity: filled,
+                  price: avgFillPrice,
+                  commission: 0,
+                  broker: "ibkr",
+                  strategy: orderDetails.strategy || "manual",
+                  executedAt: new Date(),
+                });
+
+                // Update position in database
+                const position = positionManager.getPosition(orderDetails.symbol);
+                if (position) {
+                  await positionRepository.upsertPosition({
+                    symbol: orderDetails.symbol,
+                    quantity: position.quantity,
+                    avgEntryPrice: position.avgEntryPrice,
+                    currentPrice: position.currentPrice,
+                    unrealizedPnL: position.unrealizedPnL,
+                    broker: "ibkr",
+                    side: position.side,
+                  });
+                  
+                  logger.info("✅ IBKR trade and position saved to database", {
+                    symbol: orderDetails.symbol,
+                    orderId: trackedOrderId,
+                  });
+                }
+              } catch (dbError: any) {
+                logger.error("Failed to save trade/position to database", {
+                  error: dbError.message,
+                  orderId: trackedOrderId,
+                });
+              }
+            })();
           }
         } else if (status === "Cancelled") {
           logger.info("Order cancelled", { orderId, trackedOrderId });
@@ -178,6 +252,48 @@ class IbkrClient {
           commission: execution.commission || 0,
           timestamp: new Date(),
         });
+
+        // 💾 Save trade and position to database
+        (async () => {
+          try {
+            // Save trade record
+            await tradeRepository.createTrade({
+              orderId: trackedOrderId,
+              symbol: contract.symbol!,
+              action: execution.side === "BOT" ? "BUY" : "SELL",
+              quantity: execution.shares,
+              price: execution.price,
+              commission: execution.commission || 0,
+              broker: "ibkr",
+              strategy: orderDetails?.strategy || "manual",
+              executedAt: new Date(),
+            });
+
+            // Update position in database
+            const position = positionManager.getPosition(contract.symbol!);
+            if (position) {
+              await positionRepository.upsertPosition({
+                symbol: contract.symbol!,
+                quantity: position.quantity,
+                avgEntryPrice: position.avgEntryPrice,
+                currentPrice: position.currentPrice,
+                unrealizedPnL: position.unrealizedPnL,
+                broker: "ibkr",
+                side: position.side,
+              });
+              
+              logger.info("✅ IBKR trade and position saved to database", {
+                symbol: contract.symbol,
+                orderId: trackedOrderId,
+              });
+            }
+          } catch (dbError: any) {
+            logger.error("Failed to save trade/position to database", {
+              error: dbError.message,
+              orderId: trackedOrderId,
+            });
+          }
+        })();
 
         logger.info("Position updated from execution", {
           symbol: contract.symbol,
@@ -398,6 +514,30 @@ class IbkrClient {
 
       // Store mapping from IBKR orderId to our trackedOrderId
       this.orderIdMap.set(orderId, trackedOrderId);
+
+      // 💾 Save order to database
+      try {
+        await orderRepository.createOrder({
+          orderId: trackedOrderId,
+          symbol: request.symbol,
+          action: request.action as "BUY" | "SELL",
+          orderType: request.orderType as "MKT" | "LMT" | "STP" | "TRAIL",
+          quantity: request.quantity,
+          broker: "ibkr",
+          strategy: request.metadata?.strategy || "manual",
+          status: "PENDING",
+          submittedAt: new Date(),
+          limitPrice: request.limitPrice,
+          stopPrice: request.stopPrice,
+          trailingAmount: request.trailingAmount,
+        });
+        logger.info("✅ IBKR order saved to database", { orderId: trackedOrderId });
+      } catch (dbError: any) {
+        logger.error("Failed to save IBKR order to database", {
+          error: dbError.message,
+          orderId: trackedOrderId,
+        });
+      }
 
       // Place order
       this.ib.placeOrder(orderId, contract, order);
