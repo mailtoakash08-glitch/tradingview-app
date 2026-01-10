@@ -115,12 +115,11 @@ class IbkrClient {
               status === 'Inactive' ? 'REJECTED' :
               'PENDING';
             
-            await orderRepository.updateOrderStatus(
-              trackedOrderId,
-              dbStatus,
-              filled,
-              avgFillPrice
-            );
+            await orderRepository.update(trackedOrderId, {
+              status: dbStatus,
+              filledQuantity: filled,
+              avgFillPrice: avgFillPrice,
+            });
             
             logger.info("✅ IBKR order status updated in database", {
               orderId: trackedOrderId,
@@ -168,11 +167,16 @@ class IbkrClient {
             // 💾 Save trade and position to database
             (async () => {
               try {
+                // Determine trade side and action based on position state
+                const action = orderDetails.action === 'BUY' ? 'BUY' : 'SELL';
+                const side = orderDetails.action === 'BUY' ? 'LONG' : 'SHORT';
+                
                 // Save trade record
-                await tradeRepository.createTrade({
+                await tradeRepository.create({
                   orderId: trackedOrderId,
                   symbol: orderDetails.symbol,
-                  action: orderDetails.action,
+                  action: 'ENTRY', // For now, mark as entry. TODO: detect exit based on position
+                  side: side as 'LONG' | 'SHORT',
                   quantity: filled,
                   price: avgFillPrice,
                   commission: 0,
@@ -184,14 +188,15 @@ class IbkrClient {
                 // Update position in database
                 const position = positionManager.getPosition(orderDetails.symbol);
                 if (position) {
-                  await positionRepository.upsertPosition({
+                  await positionRepository.upsert({
                     symbol: orderDetails.symbol,
                     quantity: position.quantity,
                     avgEntryPrice: position.avgEntryPrice,
                     currentPrice: position.currentPrice,
                     unrealizedPnL: position.unrealizedPnL,
                     broker: "ibkr",
-                    side: position.side,
+                    strategy: orderDetails.strategy || "manual",
+                    isOpen: true,
                   });
                   
                   logger.info("✅ IBKR trade and position saved to database", {
@@ -256,11 +261,16 @@ class IbkrClient {
         // 💾 Save trade and position to database
         (async () => {
           try {
+            // Determine trade side and action
+            const action = execution.side === "BOT" ? "BUY" : "SELL";
+            const side = execution.side === "BOT" ? "LONG" : "SHORT";
+            
             // Save trade record
-            await tradeRepository.createTrade({
+            await tradeRepository.create({
               orderId: trackedOrderId,
               symbol: contract.symbol!,
-              action: execution.side === "BOT" ? "BUY" : "SELL",
+              action: 'ENTRY', // For now, mark as entry. TODO: detect exit based on position
+              side: side as 'LONG' | 'SHORT',
               quantity: execution.shares,
               price: execution.price,
               commission: execution.commission || 0,
@@ -272,14 +282,15 @@ class IbkrClient {
             // Update position in database
             const position = positionManager.getPosition(contract.symbol!);
             if (position) {
-              await positionRepository.upsertPosition({
+              await positionRepository.upsert({
                 symbol: contract.symbol!,
                 quantity: position.quantity,
                 avgEntryPrice: position.avgEntryPrice,
                 currentPrice: position.currentPrice,
                 unrealizedPnL: position.unrealizedPnL,
                 broker: "ibkr",
-                side: position.side,
+                strategy: orderDetails?.strategy || "manual",
+                isOpen: true,
               });
               
               logger.info("✅ IBKR trade and position saved to database", {
@@ -517,7 +528,7 @@ class IbkrClient {
 
       // 💾 Save order to database
       try {
-        await orderRepository.createOrder({
+        await orderRepository.create({
           orderId: trackedOrderId,
           symbol: request.symbol,
           action: request.action as "BUY" | "SELL",
@@ -526,7 +537,7 @@ class IbkrClient {
           broker: "ibkr",
           strategy: request.metadata?.strategy || "manual",
           status: "PENDING",
-          submittedAt: new Date(),
+          submittedAt: new Date().toISOString(),
           limitPrice: request.limitPrice,
           stopPrice: request.stopPrice,
           trailingAmount: request.trailingAmount,
