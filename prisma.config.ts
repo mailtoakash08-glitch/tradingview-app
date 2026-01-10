@@ -10,7 +10,10 @@ export default defineConfig({
   },
   datasources: {
     db: {
-      url: process.env["DATABASE_URL"] || "postgresql://tradinguser:TradingP@ss2026!Secure@localhost:5432/tradingdb",
+      url: {
+        fromEnvVar: "DATABASE_URL",
+        value: process.env["DATABASE_URL"] || "postgresql://tradinguser:TradingP@ss2026!Secure@localhost:5432/tradingdb",
+      },
     },
   },
 });
