@@ -3,8 +3,28 @@
  * Handles all database operations for orders
  */
 
-import prisma from './database';
-import { InternalOrder } from '../types/order';
+import prisma from '../services/database';
+
+export interface InternalOrder {
+  orderId: string;
+  symbol: string;
+  action: string;
+  orderType: string;
+  quantity: number;
+  limitPrice?: number;
+  stopPrice?: number;
+  trailingAmount?: number;
+  status?: string;
+  filledQuantity?: number;
+  avgFillPrice?: number;
+  strategy?: string;
+  broker?: string;
+  outsideRth?: boolean;
+  submittedAt?: string;
+  filledAt?: string;
+  cancelledAt?: string;
+  errorMessage?: string;
+}
 
 export class OrderRepository {
   /**
