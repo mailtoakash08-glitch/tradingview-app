@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ORDERS TABLE
+// ============================================
+model Order {
+  id               String    @id @default(cuid())
+  orderId          String    @unique // ORD-xxx format
+  symbol           String
+  strategy         String
+  broker           String    // demo, ibkr, lightspeed
+  action           String    // BUY, SELL
+  orderType        String    // MKT, LMT, STP, TRAIL
+  quantity         Int
+  limitPrice       Float?
+  stopPrice        Float?
+  trailingAmount   Float?
+  status           String    @default("PENDING") // PENDING, FILLED, CANCELLED, REJECTED
+  filledQuantity   Int       @default(0)
+  avgFillPrice     Float?
+  commission       Float?
+  outsideRth       Boolean   @default(false)
+  submittedAt      DateTime  @default(now())
+  filledAt         DateTime?
+  cancelledAt      DateTime?
+  rejectedAt       DateTime?
+  errorMessage     String?
+  
+  // Relations
+  trades           Trade[]
+  
+  @@index([symbol])
+  @@index([status])
+  @@index([broker])
+  @@index([submittedAt])
+}
+
+// ============================================
+// POSITIONS TABLE
+// ============================================
+model Position {
+  id               Int       @id @default(autoincrement())
+  symbol           String
+  broker           String
+  strategy         String
+  quantity         Int       // Positive = LONG, Negative = SHORT
+  avgEntryPrice    Float
+  currentPrice     Float
+  unrealizedPnL    Float
+  realizedPnL      Float     @default(0)
+  openedAt         DateTime  @default(now())
+  closedAt         DateTime?
+  isOpen           Boolean   @default(true)
+  
+  // Relations
+  trades           Trade[]
+  
+  @@unique([symbol, broker, isOpen]) // Only one open position per symbol per broker
+  @@index([symbol])
+  @@index([broker])
+  @@index([isOpen])
+  @@index([openedAt])
+}
+
+// ============================================
+// TRADES TABLE (Filled Orders)
+// ============================================
+model Trade {
+  id               Int       @id @default(autoincrement())
+  orderId          String
+  symbol           String
+  strategy         String
+  broker           String
+  side             String    // LONG, SHORT
+  action           String    // ENTRY, EXIT
+  quantity         Int
+  price            Float
+  commission       Float?
+  pnl              Float?
+  pnlPercent       Float?
+  executedAt       DateTime  @default(now())
+  
+  // Relations
+  order            Order?    @relation(fields: [orderId], references: [orderId])
+  position         Position? @relation(fields: [positionId], references: [id])
+  positionId       Int?
+  
+  @@index([symbol])
+  @@index([broker])
+  @@index([executedAt])
+  @@index([orderId])
+}
+
+// ============================================
+// ACCOUNT SNAPSHOTS TABLE
+// ============================================
+model AccountSnapshot {
+  id               Int       @id @default(autoincrement())
+  broker           String
+  balance          Float
+  equity           Float
+  totalPnL         Float
+  dayPnL           Float
+  openPositions    Int
+  openPositionsValue Float
+  todayTrades      Int
+  winRate          Float
+  timestamp        DateTime  @default(now())
+  
+  @@index([broker])
+  @@index([timestamp])
+}
+
+// ============================================
+// SETTINGS TABLE
+// ============================================
+model Setting {
+  id               Int       @id @default(autoincrement())
+  key              String    @unique
+  value            String
+  description      String?
+  updatedAt        DateTime  @updatedAt
+}
+
+// ============================================
+// LOGS TABLE (Optional - for audit trail)
+// ============================================
+model Log {
+  id               Int       @id @default(autoincrement())
+  level            String    // info, warn, error
+  message          String
+  data             String?   // JSON string
+  timestamp        DateTime  @default(now())
+  
+  @@index([level])
+  @@index([timestamp])
+}
