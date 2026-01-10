@@ -642,7 +642,7 @@ router.get("/", (req: Request, res: Response) => {
     /* Position Markers on Chart */
     .position-marker {
       position: absolute;
-      right: 20px;
+      left: 20px;
       background: rgba(26, 26, 26, 0.95);
       border: 1px solid #2A2E39;
       border-radius: 6px;
