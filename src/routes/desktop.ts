@@ -1195,17 +1195,32 @@ router.get("/", (req: Request, res: Response) => {
     // Generate sample candlestick data
     function generateSampleData() {
       const data = [];
-      const basePrice = 100 + Math.random() * 100;
+      
+      // Create deterministic seed from symbol name
+      // Same symbol = same chart every time
+      let seed = 0;
+      for (let i = 0; i < currentSymbolData.symbol.length; i++) {
+        seed += currentSymbolData.symbol.charCodeAt(i);
+      }
+      
+      // Simple seeded random number generator
+      function seededRandom() {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+      }
+      
+      // Generate base price from symbol (deterministic)
+      const basePrice = 50 + (seededRandom() * 150); // $50-$200
       let currentPrice = basePrice;
       const now = Math.floor(Date.now() / 1000);
       
       for (let i = 100; i >= 0; i--) {
         const time = now - (i * 300); // 5-minute bars
-        const change = (Math.random() - 0.5) * 2;
+        const change = (seededRandom() - 0.5) * 3; // Price volatility
         const open = currentPrice;
         const close = open + change;
-        const high = Math.max(open, close) + Math.random();
-        const low = Math.min(open, close) - Math.random();
+        const high = Math.max(open, close) + seededRandom();
+        const low = Math.min(open, close) - seededRandom();
         
         data.push({
           time: time,
