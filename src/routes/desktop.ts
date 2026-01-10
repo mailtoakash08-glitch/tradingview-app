@@ -1574,7 +1574,7 @@ router.get("/", (req: Request, res: Response) => {
       if (pendingOrders.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No pending stop orders</td></tr>';
         // Redraw lines (will clear order lines if empty)
-        if (chart) redrawOrderLines();
+        if (tvWidget) redrawOrderLines();
         return;
       }
 
@@ -1600,7 +1600,7 @@ router.get("/", (req: Request, res: Response) => {
       }).join('');
 
       // Redraw order lines on chart
-      if (chart) redrawOrderLines();
+      if (tvWidget) redrawOrderLines();
     }
 
     // Cancel Order
@@ -1636,7 +1636,7 @@ router.get("/", (req: Request, res: Response) => {
         tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No open positions</td></tr>';
         updatePositionMarker(null); // Hide marker
         // Redraw lines (will clear position lines if empty)
-        if (chart) redrawOrderLines();
+        if (tvWidget) redrawOrderLines();
         return;
       }
 
@@ -1678,7 +1678,7 @@ router.get("/", (req: Request, res: Response) => {
       }).join('');
 
       // Redraw position lines on chart
-      if (chart) redrawOrderLines();
+      if (tvWidget) redrawOrderLines();
     }
 
     // Update Position Marker Overlay
