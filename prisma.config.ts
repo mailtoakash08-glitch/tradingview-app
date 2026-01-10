@@ -3,6 +3,8 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+const databaseUrl = process.env["DATABASE_URL"] || "postgresql://tradinguser:TradingP@ss2026!Secure@localhost:5432/tradingdb";
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -12,7 +14,7 @@ export default defineConfig({
     db: {
       url: {
         fromEnvVar: "DATABASE_URL",
-        value: process.env["DATABASE_URL"] || "postgresql://tradinguser:TradingP@ss2026!Secure@localhost:5432/tradingdb",
+        value: databaseUrl,
       },
     },
   },

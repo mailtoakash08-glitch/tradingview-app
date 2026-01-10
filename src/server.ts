@@ -12,6 +12,7 @@ import tradingRoutes from "./routes/trading";
 import dashboardRoutes from "./routes/dashboard";
 import workspaceRoutes from "./routes/workspace";
 import desktopRoutes from "./routes/desktop";
+import analyticsRoutes from "./routes/analytics";
 import { logger } from "./logger";
 
 export function createApp(): Application {
@@ -74,6 +75,7 @@ export function createApp(): Application {
   app.use("/workspace", workspaceRoutes); // Integrated trading workspace
   app.use("/desktop", desktopRoutes); // TradingView Desktop-style interface
   app.use("/api/dashboard", dashboardRoutes); // Dashboard API routes
+  app.use("/api/analytics", analyticsRoutes); // Analytics API routes
 
   // Dashboard page
   app.get("/dashboard", (req: Request, res: Response) => {

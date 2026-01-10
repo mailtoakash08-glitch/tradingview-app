@@ -7,6 +7,9 @@ import { IbkrOrderRequest, IbkrOrderResponse } from "../types/order";
 import { logger } from "../logger";
 import { positionManager } from "./positionManager";
 import { orderTracker } from "./orderTracker";
+import { orderRepository } from "../repositories/orderRepository";
+import { positionRepository } from "../repositories/positionRepository";
+import { tradeRepository } from "../repositories/tradeRepository";
 
 interface DemoPosition {
   symbol: string;
@@ -60,6 +63,27 @@ class DemoClient {
       orderType: orderRequest.orderType,
     });
 
+    // Save order to database
+    try {
+      await orderRepository.create({
+        orderId,
+        symbol: orderRequest.symbol,
+        action: orderRequest.action,
+        orderType: orderRequest.orderType,
+        quantity: orderRequest.quantity,
+        limitPrice: orderRequest.limitPrice,
+        stopPrice: orderRequest.stopPrice,
+        trailingAmount: orderRequest.trailingAmount,
+        status: 'PENDING',
+        broker: 'demo',
+        strategy: 'manual',
+        outsideRth: orderRequest.outsideRth ?? false,
+        submittedAt: new Date().toISOString(),
+      } as any);
+    } catch (error) {
+      logger.error('Error saving order to database', { error });
+    }
+
     // Simulate order fill after delay
     setTimeout(() => {
       this.simulateFill(orderId, orderRequest);
@@ -75,7 +99,7 @@ class DemoClient {
   /**
    * Simulate order fill
    */
-  private simulateFill(orderId: string, order: IbkrOrderRequest): void {
+  private async simulateFill(orderId: string, order: IbkrOrderRequest): Promise<void> {
     // Generate a realistic fill price
     let fillPrice = 0;
 
@@ -115,6 +139,17 @@ class DemoClient {
       timestamp: new Date(),
     });
 
+    // Update database - mark order as filled
+    try {
+      await orderRepository.update(orderId, {
+        status: 'FILLED',
+        filledQuantity: order.quantity,
+        avgFillPrice: fillPrice,
+      } as any);
+    } catch (error) {
+      logger.error('Error updating order in database', { error });
+    }
+
     // Update demo positions for tracking
     const currentPos = this.demoPositions.get(order.symbol);
     const newQuantity =
@@ -124,6 +159,12 @@ class DemoClient {
 
     if (newQuantity === 0) {
       this.demoPositions.delete(order.symbol);
+      // Close position in database
+      try {
+        await positionRepository.close(order.symbol, 'demo', 0);
+      } catch (error) {
+        logger.error('Error closing position in database', { error });
+      }
     } else {
       this.demoPositions.set(order.symbol, {
         symbol: order.symbol,
@@ -131,6 +172,39 @@ class DemoClient {
         entryPrice: fillPrice,
         currentPrice: fillPrice,
       });
+
+      // Upsert position in database
+      try {
+        await positionRepository.upsert({
+          symbol: order.symbol,
+          broker: 'demo',
+          strategy: 'manual',
+          quantity: newQuantity,
+          avgEntryPrice: fillPrice,
+          currentPrice: fillPrice,
+          unrealizedPnL: 0,
+          isOpen: true,
+        });
+      } catch (error) {
+        logger.error('Error upserting position in database', { error });
+      }
+    }
+
+    // Record trade in database
+    try {
+      await tradeRepository.create({
+        orderId,
+        symbol: order.symbol,
+        strategy: 'manual',
+        broker: 'demo',
+        side: order.action === 'BUY' ? 'LONG' : 'SHORT',
+        action: newQuantity === 0 ? 'EXIT' : 'ENTRY',
+        quantity: order.quantity,
+        price: fillPrice,
+        commission: 0,
+      });
+    } catch (error) {
+      logger.error('Error creating trade in database', { error });
     }
 
     logger.info("🎮 DEMO: Position updated", {
