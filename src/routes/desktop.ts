@@ -22,7 +22,8 @@ router.get("/", (req: Request, res: Response) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trading Desktop - IBKR</title>
-  <script type="text/javascript" src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- TradingView Advanced Charts Widget -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
   <style>
     * {
       margin: 0;
@@ -925,9 +926,8 @@ router.get("/", (req: Request, res: Response) => {
 
   <script>
     // Global State
-    let currentSymbol = 'DVLT';
-    let chart = null;
-    let candleSeries = null;
+    let currentSymbol = 'AAPL';
+    let tvWidget = null; // TradingView widget instance
     let orderLines = {}; // Track drawn order lines {orderId: priceLine}
     let positionLines = {}; // Track position entry lines {symbol: priceLine}
     let positions = [];
@@ -1081,167 +1081,201 @@ router.get("/", (req: Request, res: Response) => {
       }
     }
 
-    // Initialize TradingView Chart
+    // Initialize TradingView Advanced Chart
     function initChart(symbol) {
       console.log('initChart called with symbol:', symbol);
       
-      const container = document.getElementById('tradingview_chart');
-      if (!container) {
-        console.error('Chart container not found');
-        alert('Chart container not found! Please refresh the page.');
-        return;
-      }
-      
-      console.log('Container found:', container);
       currentSymbolData.symbol = symbol;
       
-      // Remove existing chart first
-      if (chart) {
+      // Remove existing widget first
+      if (tvWidget) {
         try {
-          chart.remove();
-          console.log('Existing chart removed');
+          tvWidget.remove();
+          console.log('Existing TradingView widget removed');
         } catch (e) {
-          console.warn('Error removing chart:', e);
+          console.warn('Error removing widget:', e);
         }
-        chart = null;
-        candleSeries = null;
+        tvWidget = null;
         orderLines = {};
         positionLines = {};
       }
-      
-      // Clear container
-      container.innerHTML = '';
 
-      console.log('Creating Lightweight Chart for:', symbol);
+      console.log('Creating TradingView Advanced Chart for:', symbol);
 
       try {
-        // Create chart
-        chart = LightweightCharts.createChart(container, {
-          width: container.clientWidth,
-          height: container.clientHeight,
-          layout: {
-            background: { color: '#131722' },
-            textColor: '#D1D4DC',
+        // Create TradingView Advanced Charts widget
+        tvWidget = new TradingView.widget({
+          autosize: true,
+          symbol: symbol,
+          interval: '5',
+          timezone: 'America/New_York',
+          theme: 'dark',
+          style: '1',
+          locale: 'en',
+          toolbar_bg: '#131722',
+          enable_publishing: false,
+          hide_side_toolbar: false,
+          allow_symbol_change: true,
+          container_id: 'tradingview_chart',
+          
+          // Enable all features
+          enabled_features: [
+            'header_widget',
+            'left_toolbar',
+            'control_bar',
+            'timeframes_toolbar',
+            'drawing_templates',
+            'use_localstorage_for_settings',
+            'save_chart_properties_to_local_storage'
+          ],
+          
+          disabled_features: [
+            'use_localstorage_for_settings',
+            'header_symbol_search',
+            'header_compare'
+          ],
+          
+          // Customize appearance
+          overrides: {
+            'paneProperties.background': '#131722',
+            'paneProperties.backgroundType': 'solid',
+            'scalesProperties.textColor': '#D1D4DC',
+            'scalesProperties.backgroundColor': '#131722',
+            'mainSeriesProperties.candleStyle.upColor': '#26a69a',
+            'mainSeriesProperties.candleStyle.downColor': '#ef5350',
+            'mainSeriesProperties.candleStyle.borderUpColor': '#26a69a',
+            'mainSeriesProperties.candleStyle.borderDownColor': '#ef5350',
+            'mainSeriesProperties.candleStyle.wickUpColor': '#26a69a',
+            'mainSeriesProperties.candleStyle.wickDownColor': '#ef5350',
           },
-          grid: {
-            vertLines: { color: '#1E222D' },
-            horzLines: { color: '#1E222D' },
+          
+          studies_overrides: {},
+          
+          loading_screen: {
+            backgroundColor: '#131722',
+            foregroundColor: '#2962FF'
           },
-          crosshair: {
-            mode: LightweightCharts.CrosshairMode.Normal,
-          },
-          rightPriceScale: {
-            borderColor: '#2A2E39',
-          },
-          timeScale: {
-            borderColor: '#2A2E39',
-            timeVisible: true,
-            secondsVisible: false,
-          },
-        });
-
-        // Create candlestick series
-        candleSeries = chart.addCandlestickSeries({
-          upColor: '#26a69a',
-          downColor: '#ef5350',
-          borderVisible: false,
-          wickUpColor: '#26a69a',
-          wickDownColor: '#ef5350',
-        });
-
-        // Fetch and display data for the symbol
-        fetchChartData(symbol);
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-          if (chart) {
-            chart.applyOptions({
-              width: container.clientWidth,
-              height: container.clientHeight,
-            });
+          
+          favorites: {
+            intervals: ['1', '5', '15', '60', '240', 'D', 'W'],
+            chartTypes: ['Area', 'Candles', 'Line']
           }
         });
 
-        console.log('Lightweight Chart created successfully');
-        
-        // Redraw order lines for current symbol
-        redrawOrderLines();
+        // Wait for widget to be ready
+        tvWidget.onChartReady(() => {
+          console.log('TradingView widget ready');
+          
+          // Update current price when available
+          fetchCurrentPrice(symbol);
+          
+          // Redraw order/position lines after chart is ready
+          setTimeout(() => {
+            drawOrderLinesOnTV();
+          }, 1000);
+        });
+
+        console.log('TradingView widget created successfully');
       } catch (error) {
-        console.error('Error creating chart:', error);
-        alert('Error loading chart. Please refresh the page.');
+        console.error('Error creating TradingView chart:', error);
+        alert('Error loading TradingView chart. Please refresh the page.');
       }
     }
-
-    // Fetch chart data from real market data API
-    async function fetchChartData(symbol) {
+    
+    // Fetch current price from API
+    async function fetchCurrentPrice(symbol) {
       try {
-        console.log('Fetching real market data for:', symbol);
-        
-        // Fetch from our market data API (Yahoo Finance proxy)
-        const response = await fetch('/api/market/chart/' + symbol + '?interval=5m&range=1d');
+        const response = await fetch('/api/market/quote/' + symbol);
         const result = await response.json();
         
-        if (!result.success || !result.data || !result.data.chartData) {
-          console.error('Failed to fetch market data:', result.error);
-          // Fall back to sample data
-          const data = generateSampleData();
-          candleSeries.setData(data);
+        if (result.success && result.data) {
+          currentSymbolData.lastPrice = result.data.price;
           
-          if (data.length > 0) {
-            currentSymbolData.lastPrice = data[data.length - 1].close;
+          // Update watchlist price
+          const priceElement = document.getElementById('price-' + symbol);
+          const changeElement = document.getElementById('change-' + symbol);
+          
+          if (priceElement) {
+            priceElement.textContent = '$' + result.data.price.toFixed(2);
           }
           
-          showNotification('Warning', 'Using sample data for ' + symbol, 'error');
-          chart.timeScale().fitContent();
-          return;
+          if (changeElement) {
+            const changeClass = result.data.change >= 0 ? 'positive' : 'negative';
+            changeElement.className = 'watchlist-change ' + changeClass;
+            changeElement.textContent = (result.data.change >= 0 ? '+' : '') + result.data.changePercent.toFixed(2) + '%';
+          }
         }
-        
-        // Use real market data
-        const chartData = result.data.chartData;
-        const currentPrice = result.data.currentPrice;
-        const change = result.data.change;
-        const changePercent = result.data.changePercent;
-        
-        console.log('Loaded real data:', chartData.length, 'candles, current price:', currentPrice);
-        
-        // Set chart data
-        candleSeries.setData(chartData);
-        
-        // Store last price
-        currentSymbolData.lastPrice = currentPrice;
-        
-        // Update watchlist price
-        const priceElement = document.getElementById('price-' + symbol);
-        const changeElement = document.getElementById('change-' + symbol);
-        
-        if (priceElement) {
-          priceElement.textContent = '$' + currentPrice.toFixed(2);
-        }
-        
-        if (changeElement) {
-          const changeClass = change >= 0 ? 'positive' : 'negative';
-          changeElement.className = 'watchlist-change ' + changeClass;
-          changeElement.textContent = (change >= 0 ? '+' : '') + changePercent.toFixed(2) + '%';
-        }
-
-        // Fit content
-        chart.timeScale().fitContent();
-        
-        console.log('Real market data loaded successfully');
       } catch (error) {
-        console.error('Error fetching chart data:', error);
-        
-        // Fall back to sample data on error
-        const data = generateSampleData();
-        candleSeries.setData(data);
-        
-        if (data.length > 0) {
-          currentSymbolData.lastPrice = data[data.length - 1].close;
-        }
-        
-        chart.timeScale().fitContent();
+        console.error('Error fetching current price:', error);
       }
     }
+    
+    // Draw order and position lines on TradingView chart
+    function drawOrderLinesOnTV() {
+      if (!tvWidget) return;
+      
+      try {
+        tvWidget.activeChart().onChartReady(() => {
+          // Clear existing shapes
+          tvWidget.activeChart().removeAllShapes();
+          
+          // Draw position lines
+          for (const position of positions) {
+            if (position.symbol === currentSymbolData.symbol) {
+              const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
+              const side = position.quantity > 0 ? 'LONG' : 'SHORT';
+              const entryPrice = position.avgEntryPrice || position.avgPrice || 0;
+              
+              tvWidget.activeChart().createShape(
+                { time: Date.now() / 1000, price: entryPrice },
+                {
+                  shape: 'horizontal_line',
+                  overrides: {
+                    linecolor: color,
+                    linewidth: 2,
+                    linestyle: 0,
+                    showLabel: true,
+                    textcolor: color,
+                    text: Math.abs(position.quantity) + ' ' + side + ' @ $' + entryPrice.toFixed(2)
+                  }
+                }
+              );
+            }
+          }
+          
+          // Draw pending order lines
+          for (const order of pendingOrders) {
+            if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
+              const price = order.stopPrice || order.limitPrice || 0;
+              if (!price) continue;
+              
+              const color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
+              const orderTypeLabel = order.orderType === 'STP' ? 'STOP' : 'LIMIT';
+              
+              tvWidget.activeChart().createShape(
+                { time: Date.now() / 1000, price: price },
+                {
+                  shape: 'horizontal_line',
+                  overrides: {
+                    linecolor: color,
+                    linewidth: 1,
+                    linestyle: 2,
+                    showLabel: true,
+                    textcolor: color,
+                    text: order.action + ' ' + orderTypeLabel + ' @ $' + price.toFixed(2)
+                  }
+                }
+              );
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error drawing lines on TradingView:', error);
+      }
+    }
+
+    // TradingView handles chart data automatically
+    // No need for fetchChartData function anymore
 
     // Generate sample candlestick data
     function generateSampleData() {
@@ -1287,95 +1321,11 @@ router.get("/", (req: Request, res: Response) => {
       return data;
     }
 
-    // Draw order line on chart
-    function drawOrderLine(order) {
-      if (!candleSeries || order.symbol !== currentSymbolData.symbol) {
-        return; // Only draw if chart exists and symbol matches
-      }
-
-      const price = order.stopPrice || order.limitPrice || order.price;
-      if (!price) return;
-
-      // Color based on order type and side
-      let color = '#2962FF'; // Default blue
-      let lineStyle = LightweightCharts.LineStyle.Solid;
-      let title = '';
-
-      if (order.orderType === 'STP') {
-        color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
-        title = order.action + ' STOP @ $' + price.toFixed(2);
-        lineStyle = LightweightCharts.LineStyle.Dashed;
-      } else if (order.orderType === 'LMT') {
-        color = '#FFA726';
-        title = order.action + ' LIMIT @ $' + price.toFixed(2);
-        lineStyle = LightweightCharts.LineStyle.Dotted;
-      }
-
-      const priceLine = candleSeries.createPriceLine({
-        price: price,
-        color: color,
-        lineWidth: 2,
-        lineStyle: lineStyle,
-        axisLabelVisible: true,
-        title: title,
-      });
-
-      orderLines[order.orderId] = priceLine;
-      console.log('Drew order line:', order.orderId, 'at price:', price);
-    }
-
-    // Draw position entry line
-    function drawPositionLine(position) {
-      if (!candleSeries || position.symbol !== currentSymbolData.symbol) {
-        return;
-      }
-
-      const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
-      const side = position.quantity > 0 ? 'LONG' : 'SHORT';
-      const entryPrice = position.avgEntryPrice || position.entryPrice || position.avgPrice || 0;
-      const title = Math.abs(position.quantity) + ' ' + side + ' @ $' + entryPrice.toFixed(2);
-
-      const priceLine = candleSeries.createPriceLine({
-        price: entryPrice,
-        color: color,
-        lineWidth: 3,
-        lineStyle: LightweightCharts.LineStyle.Solid,
-        axisLabelVisible: true,
-        title: title,
-      });
-
-      positionLines[position.symbol] = priceLine;
-      console.log('Drew position line:', position.symbol, 'at price:', entryPrice);
-    }
-
-    // Redraw all order lines for current symbol
+    // Redraw all order lines for current symbol (TradingView version)
     function redrawOrderLines() {
-      // Clear existing lines
-      for (const lineId in orderLines) {
-        try {
-          candleSeries.removePriceLine(orderLines[lineId]);
-        } catch (e) {}
-      }
-      for (const lineId in positionLines) {
-        try {
-          candleSeries.removePriceLine(positionLines[lineId]);
-        } catch (e) {}
-      }
-      orderLines = {};
-      positionLines = {};
-
-      // Draw position lines
-      for (const position of positions) {
-        if (position.symbol === currentSymbolData.symbol) {
-          drawPositionLine(position);
-        }
-      }
-
-      // Draw pending order lines
-      for (const order of pendingOrders) {
-        if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
-          drawOrderLine(order);
-        }
+      // TradingView version - use drawOrderLinesOnTV()
+      if (tvWidget) {
+        drawOrderLinesOnTV();
       }
     }
 
