@@ -13,6 +13,7 @@ import dashboardRoutes from "./routes/dashboard";
 import workspaceRoutes from "./routes/workspace";
 import desktopRoutes from "./routes/desktop";
 import analyticsRoutes from "./routes/analytics";
+import marketRoutes from "./routes/market";
 import { logger } from "./logger";
 
 export function createApp(): Application {
@@ -76,6 +77,7 @@ export function createApp(): Application {
   app.use("/desktop", desktopRoutes); // TradingView Desktop-style interface
   app.use("/api/dashboard", dashboardRoutes); // Dashboard API routes
   app.use("/api/analytics", analyticsRoutes); // Analytics API routes
+  app.use("/api/market", marketRoutes); // Market data API routes
 
   // Dashboard page
   app.get("/dashboard", (req: Request, res: Response) => {

@@ -1172,23 +1172,74 @@ router.get("/", (req: Request, res: Response) => {
       }
     }
 
-    // Fetch chart data (simplified - using random data for now)
+    // Fetch chart data from real market data API
     async function fetchChartData(symbol) {
       try {
-        // For demo purposes, generate sample data
-        // In production, fetch from your API or data provider
-        const data = generateSampleData();
-        candleSeries.setData(data);
+        console.log('Fetching real market data for:', symbol);
+        
+        // Fetch from our market data API (Yahoo Finance proxy)
+        const response = await fetch('/api/market/chart/' + symbol + '?interval=5m&range=1d');
+        const result = await response.json();
+        
+        if (!result.success || !result.data || !result.data.chartData) {
+          console.error('Failed to fetch market data:', result.error);
+          // Fall back to sample data
+          const data = generateSampleData();
+          candleSeries.setData(data);
+          
+          if (data.length > 0) {
+            currentSymbolData.lastPrice = data[data.length - 1].close;
+          }
+          
+          showNotification('Warning', 'Using sample data for ' + symbol, 'error');
+          chart.timeScale().fitContent();
+          return;
+        }
+        
+        // Use real market data
+        const chartData = result.data.chartData;
+        const currentPrice = result.data.currentPrice;
+        const change = result.data.change;
+        const changePercent = result.data.changePercent;
+        
+        console.log('Loaded real data:', chartData.length, 'candles, current price:', currentPrice);
+        
+        // Set chart data
+        candleSeries.setData(chartData);
         
         // Store last price
-        if (data.length > 0) {
-          currentSymbolData.lastPrice = data[data.length - 1].close;
+        currentSymbolData.lastPrice = currentPrice;
+        
+        // Update watchlist price
+        const priceElement = document.getElementById('price-' + symbol);
+        const changeElement = document.getElementById('change-' + symbol);
+        
+        if (priceElement) {
+          priceElement.textContent = '$' + currentPrice.toFixed(2);
+        }
+        
+        if (changeElement) {
+          const changeClass = change >= 0 ? 'positive' : 'negative';
+          changeElement.className = 'watchlist-change ' + changeClass;
+          changeElement.textContent = (change >= 0 ? '+' : '') + changePercent.toFixed(2) + '%';
         }
 
         // Fit content
         chart.timeScale().fitContent();
+        
+        console.log('Real market data loaded successfully');
       } catch (error) {
         console.error('Error fetching chart data:', error);
+        
+        // Fall back to sample data on error
+        const data = generateSampleData();
+        candleSeries.setData(data);
+        
+        if (data.length > 0) {
+          currentSymbolData.lastPrice = data[data.length - 1].close;
+        }
+        
+        chart.timeScale().fitContent();
       }
     }
 
