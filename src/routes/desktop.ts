@@ -1273,6 +1273,22 @@ router.get("/", (req: Request, res: Response) => {
           timeScale: {
             timeVisible: true,
             secondsVisible: false,
+            // Format the time to show in local timezone
+            rightOffset: 12,
+            barSpacing: 3,
+            fixLeftEdge: false,
+            fixRightEdge: false,
+            lockVisibleTimeRangeOnResize: true,
+            borderColor: '#2B2B43',
+          },
+          localization: {
+            // Use browser's local timezone
+            timeFormatter: (timestamp) => {
+              const date = new Date(timestamp * 1000);
+              const hours = date.getHours().toString().padStart(2, '0');
+              const minutes = date.getMinutes().toString().padStart(2, '0');
+              return \`\${hours}:\${minutes}\`;
+            },
           },
         });
 
@@ -1335,7 +1351,8 @@ router.get("/", (req: Request, res: Response) => {
       
       try {
         console.log('Fetching real market data for:', symbol);
-        const response = await fetch(\`/api/market/chart/\${symbol}?interval=5m&range=1d\`);
+        // Fetch 5 days of data with 5-minute intervals to match TradingView
+        const response = await fetch(\`/api/market/chart/\${symbol}?interval=5m&range=5d\`);
         const result = await response.json();
         
         if (!result.success || !result.data || !result.data.chartData) {
@@ -1349,6 +1366,7 @@ router.get("/", (req: Request, res: Response) => {
         const chartData = result.data.chartData;
         console.log('Loaded', chartData.length, 'candles from', result.data.dataSource || 'market data');
         console.log('Current price:', result.data.currentPrice, '| Last update:', result.data.lastUpdate);
+        console.log('Date range:', new Date(chartData[0]?.time * 1000).toLocaleString(), 'to', new Date(chartData[chartData.length - 1]?.time * 1000).toLocaleString());
         
         // Update the chart with real data
         lwCandleSeries.setData(chartData);
