@@ -2183,34 +2183,27 @@ router.get("/", (req: Request, res: Response) => {
       for (let i = 0; i < positions.length; i++) {
         const pos = positions[i];
         try {
-          const action = pos.quantity > 0 ? 'EXIT' : 'ENTRY_LONG';
-          const qty = Math.abs(pos.quantity);
-
-          const response = await fetch('/webhook/tradingview', {
+          // Use the database close endpoint instead of webhook
+          const broker = pos.broker || 'demo';
+          const response = await fetch(\`/api/dashboard/positions/\${pos.symbol}/close?broker=\${broker}\`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              strategy: 'manual_bmnr',
-              action: action,
-              symbol: pos.symbol,
-              qty: qty,
-              orderType: 'MKT',
-              outsideRth: true
-            })
+            headers: { 'Content-Type': 'application/json' }
           });
 
           const result = await response.json();
 
-          if (response.ok && result.status === 'ok') {
+          if (response.ok && result.success) {
             successCount++;
           } else {
             failCount++;
+            console.error('Failed to close', pos.symbol, result.error);
           }
 
           await new Promise(resolve => setTimeout(resolve, 300));
 
         } catch (error) {
           failCount++;
+          console.error('Error closing position:', error);
         }
       }
 
