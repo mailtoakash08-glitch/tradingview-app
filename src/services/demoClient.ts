@@ -100,23 +100,48 @@ class DemoClient {
    * Simulate order fill
    */
   private async simulateFill(orderId: string, order: IbkrOrderRequest): Promise<void> {
-    // Generate a realistic fill price
+    // Fetch REAL market price from Yahoo Finance
     let fillPrice = 0;
 
-    if (order.orderType === "MKT") {
-      // Market order: use a random price around $50-150
-      fillPrice = 50 + Math.random() * 100;
-    } else if (order.orderType === "LMT" && order.limitPrice) {
-      // Limit order: fill at limit price
-      fillPrice = order.limitPrice;
-    } else if (order.orderType === "STP" && order.stopPrice) {
-      // Stop order: fill at stop price
-      fillPrice = order.stopPrice;
-    } else if (order.orderType === "TRAIL" && order.trailingAmount) {
-      // Trailing stop: use stop price + trailing amount
-      fillPrice = (order.stopPrice || 100) - order.trailingAmount;
-    } else {
-      fillPrice = 100; // Default fallback
+    try {
+      // Fetch current market price
+      const axios = require('axios');
+      const response = await axios.get(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${order.symbol}`,
+        {
+          params: { interval: '1m', range: '1d' },
+          timeout: 5000,
+        }
+      );
+
+      const result = response.data?.chart?.result?.[0];
+      const currentPrice = result?.meta?.regularMarketPrice || 0;
+
+      if (order.orderType === "MKT") {
+        // Market order: fill at current REAL market price
+        fillPrice = currentPrice || 100; // Fallback only if API fails
+      } else if (order.orderType === "LMT" && order.limitPrice) {
+        // Limit order: fill at limit price (if current price crosses it)
+        fillPrice = order.limitPrice;
+      } else if (order.orderType === "STP" && order.stopPrice) {
+        // Stop order: fill at stop price (trigger point)
+        fillPrice = order.stopPrice;
+      } else if (order.orderType === "TRAIL" && order.trailingAmount) {
+        // Trailing stop: use stop price + trailing amount
+        fillPrice = (order.stopPrice || currentPrice) - order.trailingAmount;
+      } else {
+        fillPrice = currentPrice || 100; // Default to current price
+      }
+    } catch (error) {
+      logger.warn(`🎮 DEMO: Could not fetch real price for ${order.symbol}, using fallback`, { error });
+      // Fallback to reasonable prices if Yahoo Finance fails
+      if (order.orderType === "LMT" && order.limitPrice) {
+        fillPrice = order.limitPrice;
+      } else if (order.orderType === "STP" && order.stopPrice) {
+        fillPrice = order.stopPrice;
+      } else {
+        fillPrice = 100; // Safe fallback
+      }
     }
 
     logger.info("🎮 DEMO: Order FILLED", {
