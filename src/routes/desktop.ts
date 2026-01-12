@@ -2253,12 +2253,6 @@ router.get("/", (req: Request, res: Response) => {
         }
       }, 10000);
     }
-        if (typeof TradingView === 'undefined') {
-          console.error('TradingView library failed to load after 10 seconds');
-          alert('TradingView chart library failed to load. Please check your internet connection and refresh.');
-        }
-      }, 10000);
-    }
     
     fetchPositions();
     fetchAccountSummary();
