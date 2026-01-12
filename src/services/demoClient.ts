@@ -18,16 +18,25 @@ interface DemoPosition {
   currentPrice: number;
 }
 
+interface PendingOrder {
+  orderId: string;
+  order: IbkrOrderRequest;
+  submittedAt: Date;
+}
+
 class DemoClient {
   private connected: boolean;
   private demoPositions: Map<string, DemoPosition>;
   private orderIdCounter: number;
-  private fillDelay: number = 2000; // 2 second delay to simulate real fills
+  private fillDelay: number = 2000; // 2 second delay to simulate real fills (MKT orders)
+  private pendingOrders: Map<string, PendingOrder>; // Track pending stop/limit orders
+  private priceMonitorInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.connected = false;
     this.demoPositions = new Map();
     this.orderIdCounter = 1000;
+    this.pendingOrders = new Map();
   }
 
   /**
@@ -40,9 +49,100 @@ class DemoClient {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     this.connected = true;
+    
+    // Start price monitoring for pending orders
+    this.startPriceMonitoring();
+    
     logger.info(
       "🎮 DEMO MODE connected successfully - All orders are simulated"
     );
+  }
+
+  /**
+   * Monitor prices and trigger pending stop/limit orders
+   */
+  private startPriceMonitoring(): void {
+    // Check prices every 5 seconds
+    this.priceMonitorInterval = setInterval(async () => {
+      if (this.pendingOrders.size === 0) return;
+
+      logger.info(`🎮 DEMO: Monitoring ${this.pendingOrders.size} pending orders...`);
+
+      for (const [orderId, pendingOrder] of this.pendingOrders.entries()) {
+        try {
+          await this.checkPendingOrder(orderId, pendingOrder);
+        } catch (error) {
+          logger.error(`🎮 DEMO: Error checking pending order ${orderId}`, { error });
+        }
+      }
+    }, 5000); // Check every 5 seconds
+  }
+
+  /**
+   * Check if a pending order should be triggered
+   */
+  private async checkPendingOrder(orderId: string, pendingOrder: PendingOrder): Promise<void> {
+    const { order } = pendingOrder;
+    
+    try {
+      // Fetch current market price
+      const axios = require('axios');
+      const response = await axios.get(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${order.symbol}`,
+        {
+          params: { interval: '1m', range: '1d' },
+          timeout: 5000,
+        }
+      );
+
+      const result = response.data?.chart?.result?.[0];
+      const currentPrice = result?.meta?.regularMarketPrice || 0;
+
+      if (currentPrice === 0) {
+        logger.warn(`🎮 DEMO: Could not get price for ${order.symbol}, skipping check`);
+        return;
+      }
+
+      let shouldTrigger = false;
+
+      // Check if order should trigger based on type
+      if (order.orderType === 'STP' && order.stopPrice) {
+        // Stop order logic:
+        // BUY STOP: triggers when price rises to or above stop price
+        // SELL STOP: triggers when price falls to or below stop price
+        if (order.action === 'BUY' && currentPrice >= order.stopPrice) {
+          shouldTrigger = true;
+          logger.info(`🎮 DEMO: BUY STOP triggered! Price ${currentPrice} >= ${order.stopPrice}`);
+        } else if (order.action === 'SELL' && currentPrice <= order.stopPrice) {
+          shouldTrigger = true;
+          logger.info(`🎮 DEMO: SELL STOP triggered! Price ${currentPrice} <= ${order.stopPrice}`);
+        }
+      } else if (order.orderType === 'LMT' && order.limitPrice) {
+        // Limit order logic:
+        // BUY LIMIT: triggers when price falls to or below limit price
+        // SELL LIMIT: triggers when price rises to or above limit price
+        if (order.action === 'BUY' && currentPrice <= order.limitPrice) {
+          shouldTrigger = true;
+          logger.info(`🎮 DEMO: BUY LIMIT triggered! Price ${currentPrice} <= ${order.limitPrice}`);
+        } else if (order.action === 'SELL' && currentPrice >= order.limitPrice) {
+          shouldTrigger = true;
+          logger.info(`🎮 DEMO: SELL LIMIT triggered! Price ${currentPrice} >= ${order.limitPrice}`);
+        }
+      }
+
+      if (shouldTrigger) {
+        // Remove from pending
+        this.pendingOrders.delete(orderId);
+        
+        // Trigger the fill
+        logger.info(`🎮 DEMO: Order ${orderId} triggered, filling now...`);
+        await this.simulateFill(orderId, order, currentPrice);
+      } else {
+        logger.info(`🎮 DEMO: Order ${orderId} still pending (${order.symbol} current: $${currentPrice.toFixed(2)}, trigger: $${(order.stopPrice || order.limitPrice)?.toFixed(2)})`);
+      }
+    } catch (error) {
+      logger.error(`🎮 DEMO: Error checking price for ${order.symbol}`, { error });
+    }
   }
 
   /**
@@ -55,12 +155,14 @@ class DemoClient {
 
     const orderId = `DEMO-${this.orderIdCounter++}`;
 
-    logger.info("🎮 DEMO: Order placed (will fill in 2 seconds)", {
+    logger.info("🎮 DEMO: Order placed", {
       orderId,
       symbol: orderRequest.symbol,
       action: orderRequest.action,
       quantity: orderRequest.quantity,
       orderType: orderRequest.orderType,
+      stopPrice: orderRequest.stopPrice,
+      limitPrice: orderRequest.limitPrice,
     });
 
     // Save order to database
@@ -84,63 +186,85 @@ class DemoClient {
       logger.error('Error saving order to database', { error });
     }
 
-    // Simulate order fill after delay
-    setTimeout(() => {
-      this.simulateFill(orderId, orderRequest);
-    }, this.fillDelay);
+    // Handle different order types
+    if (orderRequest.orderType === 'MKT') {
+      // Market order: fill immediately after short delay
+      logger.info(`🎮 DEMO: Market order will fill in ${this.fillDelay/1000} seconds`);
+      setTimeout(() => {
+        this.simulateFill(orderId, orderRequest);
+      }, this.fillDelay);
+    } else if (orderRequest.orderType === 'STP' || orderRequest.orderType === 'LMT') {
+      // Stop/Limit order: add to pending orders for price monitoring
+      this.pendingOrders.set(orderId, {
+        orderId,
+        order: orderRequest,
+        submittedAt: new Date(),
+      });
+      
+      const triggerPrice = orderRequest.stopPrice || orderRequest.limitPrice;
+      logger.info(`🎮 DEMO: ${orderRequest.orderType} order is PENDING - waiting for price to reach $${triggerPrice?.toFixed(2)}`);
+    } else if (orderRequest.orderType === 'TRAIL') {
+      // Trailing stop: for now, fill immediately (TODO: implement trailing logic)
+      logger.info(`🎮 DEMO: Trailing stop will fill in ${this.fillDelay/1000} seconds`);
+      setTimeout(() => {
+        this.simulateFill(orderId, orderRequest);
+      }, this.fillDelay);
+    }
 
     return {
       success: true,
       orderId: orderId,
-      message: "🎮 DEMO: Order placed (simulated)",
+      message: `🎮 DEMO: ${orderRequest.orderType} order placed`,
     };
   }
 
   /**
    * Simulate order fill
    */
-  private async simulateFill(orderId: string, order: IbkrOrderRequest): Promise<void> {
-    // Fetch REAL market price from Yahoo Finance
-    let fillPrice = 0;
+  private async simulateFill(orderId: string, order: IbkrOrderRequest, forcedPrice?: number): Promise<void> {
+    // Fetch REAL market price from Yahoo Finance (unless price is forced by trigger)
+    let fillPrice = forcedPrice || 0;
 
-    try {
-      // Fetch current market price
-      const axios = require('axios');
-      const response = await axios.get(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${order.symbol}`,
-        {
-          params: { interval: '1m', range: '1d' },
-          timeout: 5000,
+    if (!fillPrice) {
+      try {
+        // Fetch current market price
+        const axios = require('axios');
+        const response = await axios.get(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${order.symbol}`,
+          {
+            params: { interval: '1m', range: '1d' },
+            timeout: 5000,
+          }
+        );
+
+        const result = response.data?.chart?.result?.[0];
+        const currentPrice = result?.meta?.regularMarketPrice || 0;
+
+        if (order.orderType === "MKT") {
+          // Market order: fill at current REAL market price
+          fillPrice = currentPrice || 100; // Fallback only if API fails
+        } else if (order.orderType === "LMT" && order.limitPrice) {
+          // Limit order: fill at limit price
+          fillPrice = order.limitPrice;
+        } else if (order.orderType === "STP" && order.stopPrice) {
+          // Stop order: fill at current market price (stop price was the trigger)
+          fillPrice = currentPrice || order.stopPrice;
+        } else if (order.orderType === "TRAIL" && order.trailingAmount) {
+          // Trailing stop: use stop price + trailing amount
+          fillPrice = (order.stopPrice || currentPrice) - order.trailingAmount;
+        } else {
+          fillPrice = currentPrice || 100; // Default to current price
         }
-      );
-
-      const result = response.data?.chart?.result?.[0];
-      const currentPrice = result?.meta?.regularMarketPrice || 0;
-
-      if (order.orderType === "MKT") {
-        // Market order: fill at current REAL market price
-        fillPrice = currentPrice || 100; // Fallback only if API fails
-      } else if (order.orderType === "LMT" && order.limitPrice) {
-        // Limit order: fill at limit price (if current price crosses it)
-        fillPrice = order.limitPrice;
-      } else if (order.orderType === "STP" && order.stopPrice) {
-        // Stop order: fill at stop price (trigger point)
-        fillPrice = order.stopPrice;
-      } else if (order.orderType === "TRAIL" && order.trailingAmount) {
-        // Trailing stop: use stop price + trailing amount
-        fillPrice = (order.stopPrice || currentPrice) - order.trailingAmount;
-      } else {
-        fillPrice = currentPrice || 100; // Default to current price
-      }
-    } catch (error) {
-      logger.warn(`🎮 DEMO: Could not fetch real price for ${order.symbol}, using fallback`, { error });
-      // Fallback to reasonable prices if Yahoo Finance fails
-      if (order.orderType === "LMT" && order.limitPrice) {
-        fillPrice = order.limitPrice;
-      } else if (order.orderType === "STP" && order.stopPrice) {
-        fillPrice = order.stopPrice;
-      } else {
-        fillPrice = 100; // Safe fallback
+      } catch (error) {
+        logger.warn(`🎮 DEMO: Could not fetch real price for ${order.symbol}, using fallback`, { error });
+        // Fallback to reasonable prices if Yahoo Finance fails
+        if (order.orderType === "LMT" && order.limitPrice) {
+          fillPrice = order.limitPrice;
+        } else if (order.orderType === "STP" && order.stopPrice) {
+          fillPrice = order.stopPrice;
+        } else {
+          fillPrice = 100; // Safe fallback
+        }
       }
     }
 
@@ -247,7 +371,23 @@ class DemoClient {
       return false;
     }
 
-    logger.info("🎮 DEMO: Order cancelled", { orderId });
+    // Remove from pending orders if it exists
+    if (this.pendingOrders.has(orderId)) {
+      this.pendingOrders.delete(orderId);
+      logger.info("🎮 DEMO: Pending order cancelled", { orderId });
+      
+      // Update database
+      try {
+        await orderRepository.update(orderId, {
+          status: 'CANCELLED',
+        } as any);
+      } catch (error) {
+        logger.error('Error updating cancelled order in database', { error });
+      }
+    } else {
+      logger.info("🎮 DEMO: Order cancelled (or already filled)", { orderId });
+    }
+    
     return true;
   }
 
@@ -294,6 +434,14 @@ class DemoClient {
   disconnect(): void {
     this.connected = false;
     this.demoPositions.clear();
+    this.pendingOrders.clear();
+    
+    // Stop price monitoring
+    if (this.priceMonitorInterval) {
+      clearInterval(this.priceMonitorInterval);
+      this.priceMonitorInterval = null;
+    }
+    
     logger.info("🎮 DEMO MODE disconnected");
   }
 
@@ -319,6 +467,13 @@ class DemoClient {
    */
   getInfo(): string {
     return "🎮 DEMO MODE - All trades are simulated. No real money is used.";
+  }
+
+  /**
+   * Get pending orders
+   */
+  getPendingOrders(): PendingOrder[] {
+    return Array.from(this.pendingOrders.values());
   }
 }
 

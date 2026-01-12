@@ -3,6 +3,7 @@
 ## ✅ **FIXES DEPLOYED:**
 
 ### 1. **Real Market Prices in Demo Mode** ✅
+
 - **Before:** Demo mode used random prices ($50-150)
 - **After:** Demo mode fetches REAL market prices from Yahoo Finance
 - **Result:** AAPL now shows $260.25 (real price) instead of $107 (fake price)
@@ -13,24 +14,26 @@
 
 ### **Which Orders Show Lines?**
 
-| Order Type | Shows Line? | Why? | Color |
-|------------|-------------|------|-------|
-| **Market Order (MKT)** | ❌ **NO** | Fills INSTANTLY at current market price. No "trigger price" to draw. | N/A |
-| **Limit Order (LMT)** | ✅ **YES** | Has a specific entry price. Line shows where order will fill. | 🔵 Blue |
-| **Stop Market (STP)** | ✅ **YES** | Has a trigger price. Line shows activation point. | 🔴 Red |
-| **Trailing Stop** | ✅ **YES** | Has a dynamic trailing price. Line adjusts with market. | 🟠 Orange |
+| Order Type             | Shows Line? | Why?                                                                 | Color     |
+| ---------------------- | ----------- | -------------------------------------------------------------------- | --------- |
+| **Market Order (MKT)** | ❌ **NO**   | Fills INSTANTLY at current market price. No "trigger price" to draw. | N/A       |
+| **Limit Order (LMT)**  | ✅ **YES**  | Has a specific entry price. Line shows where order will fill.        | 🔵 Blue   |
+| **Stop Market (STP)**  | ✅ **YES**  | Has a trigger price. Line shows activation point.                    | 🔴 Red    |
+| **Trailing Stop**      | ✅ **YES**  | Has a dynamic trailing price. Line adjusts with market.              | 🟠 Orange |
 
 ---
 
 ## 🎯 **Why Market Orders Don't Have Lines**
 
 ### **Market Order Flow:**
+
 1. **You click "BUY" or "SELL"**
 2. **Order is sent immediately** (no waiting)
 3. **Order fills in <1 second** at the best available price
 4. **Position appears** (no "pending" state)
 
 ### **Example:**
+
 - **Time 0s:** You click BUY 1 AAPL (Market)
 - **Time 0.1s:** Order fills at $260.25
 - **Time 0.2s:** Position shows in "Open Positions" table
@@ -42,6 +45,7 @@
 ## 🎯 **Stop Orders DO Have Lines**
 
 ### **Stop Order Flow:**
+
 1. **You set a trigger price** (e.g., $255 for AAPL)
 2. **Order is "PENDING"** (waiting for trigger)
 3. **Line is drawn** at $255 on the chart
@@ -49,6 +53,7 @@
 5. **Order fills, line disappears**
 
 ### **Example:**
+
 - **Time 0s:** You set STOP at $255
 - **Line appears** at $255 on Lightweight Chart
 - **Price drops to $255** → Order fills → Line disappears
@@ -59,6 +64,7 @@
 ## 🖥️ **Chart Tabs Explained**
 
 ### **📊 Lightweight Chart (With Lines)**
+
 - ✅ **Automated order/position lines**
 - ✅ **Real market data from Yahoo Finance**
 - ✅ **Clean, fast rendering**
@@ -70,6 +76,7 @@
 ---
 
 ### **📈 TradingView Chart (Full Features)**
+
 - ✅ **Full TradingView widget**
 - ✅ **ALL drawing tools** (trendlines, Fibonacci, etc.)
 - ✅ **ALL indicators** (RSI, MACD, Bollinger Bands, etc.)
@@ -117,6 +124,7 @@
 ## 🎨 **Position Lines**
 
 **After a position is filled**, the Lightweight Chart also shows:
+
 - **Entry Price Line:** Horizontal line at your average entry price
 - **Color:** Green for LONG, Red for SHORT
 - **Label:** Shows symbol and P&L
@@ -143,13 +151,13 @@
 
 ## 📋 **Summary**
 
-| Question | Answer |
-|----------|--------|
+| Question                       | Answer                                                   |
+| ------------------------------ | -------------------------------------------------------- |
 | Why no line for Market Orders? | Because they fill instantly—no trigger price to display. |
-| When will I see lines? | Stop Orders, Limit Orders, Trailing Stops. |
-| Which chart shows lines? | **Lightweight Chart** (left tab). |
-| Can I draw manually? | **TradingView Chart** (right tab). |
-| Are prices real now? | ✅ **YES!** Demo mode uses Yahoo Finance. |
+| When will I see lines?         | Stop Orders, Limit Orders, Trailing Stops.               |
+| Which chart shows lines?       | **Lightweight Chart** (left tab).                        |
+| Can I draw manually?           | **TradingView Chart** (right tab).                       |
+| Are prices real now?           | ✅ **YES!** Demo mode uses Yahoo Finance.                |
 
 ---
 
