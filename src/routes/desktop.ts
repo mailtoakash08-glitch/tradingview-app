@@ -1926,7 +1926,7 @@ router.get("/", (req: Request, res: Response) => {
       }
 
       try {
-        const response = await fetch(\`/api/orders/\${orderId}/cancel\`, {
+        const response = await fetch(\`/api/dashboard/orders/\${orderId}/cancel\`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });

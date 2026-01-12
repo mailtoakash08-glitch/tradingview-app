@@ -212,5 +212,90 @@ router.get('/account', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/orders/:orderId/cancel - Cancel a pending order
+ */
+router.post('/orders/:orderId/cancel', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Get the order from database
+    const order = await orderRepository.getById(orderId);
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found',
+      });
+    }
+    
+    if (order.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot cancel order with status: ${order.status}`,
+      });
+    }
+    
+    // Update order status to CANCELLED
+    await orderRepository.update(orderId, {
+      status: 'CANCELLED',
+      cancelledAt: new Date().toISOString(),
+    });
+    
+    logger.info('Order cancelled', { orderId, symbol: order.symbol, broker: order.broker });
+    
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully',
+    });
+  } catch (error: any) {
+    logger.error('Error cancelling order', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to cancel order',
+    });
+  }
+});
+
+/**
+ * POST /api/positions/:symbol/close - Close a position by placing opposite order
+ */
+router.post('/positions/:symbol/close', async (req: Request, res: Response) => {
+  try {
+    const { symbol } = req.params;
+    const broker = (req.query.broker as string) || 'demo';
+    
+    // Get position from database
+    const position = await positionRepository.getBySymbol(symbol.toUpperCase(), broker);
+    
+    if (!position) {
+      return res.status(404).json({
+        success: false,
+        error: `No open position found for ${symbol}`,
+      });
+    }
+    
+    // Close the position in database
+    await positionRepository.close(symbol.toUpperCase(), broker, position.unrealizedPnL);
+    
+    logger.info('Position closed', { symbol, broker, pnl: position.unrealizedPnL });
+    
+    res.json({
+      success: true,
+      message: 'Position closed successfully',
+      data: {
+        symbol,
+        closedPnL: position.unrealizedPnL,
+      },
+    });
+  } catch (error: any) {
+    logger.error('Error closing position', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to close position',
+    });
+  }
+});
+
 export default router;
 
