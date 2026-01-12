@@ -24,6 +24,8 @@ router.get("/", (req: Request, res: Response) => {
   <title>Trading Desktop - IBKR</title>
   <!-- TradingView Advanced Charts Widget -->
   <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <!-- Lightweight Charts Library -->
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     * {
       margin: 0;
@@ -171,9 +173,59 @@ router.get("/", (req: Request, res: Response) => {
       position: relative;
       grid-row: 1 / 2;
       grid-column: 2 / 3;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Chart Tabs */
+    .chart-tabs {
+      display: flex;
+      background: #1E222D;
+      border-bottom: 1px solid #2A2E39;
+      padding: 0 10px;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    
+    .chart-tab {
+      padding: 10px 20px;
+      background: transparent;
+      border: none;
+      color: #787B86;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .chart-tab:hover {
+      color: #D1D4DC;
+      background: rgba(41, 98, 255, 0.1);
+    }
+    
+    .chart-tab.active {
+      color: #2962FF;
+      border-bottom-color: #2962FF;
+    }
+    
+    /* Chart Containers */
+    .chart-container {
+      flex: 1;
+      position: relative;
+      display: none;
+    }
+    
+    .chart-container.active {
+      display: block;
     }
 
     #tradingview_chart {
+      width: 100%;
+      height: 100%;
+    }
+    
+    #lightweight_chart {
       width: 100%;
       height: 100%;
     }
@@ -714,7 +766,25 @@ router.get("/", (req: Request, res: Response) => {
 
     <!-- Chart Section -->
     <div class="chart-section">
-      <div id="tradingview_chart"></div>
+      <!-- Chart Tabs -->
+      <div class="chart-tabs">
+        <button class="chart-tab active" id="lwcTab" onclick="switchChart('lightweight')">
+          📊 Lightweight (With Lines)
+        </button>
+        <button class="chart-tab" id="tvTab" onclick="switchChart('tradingview')">
+          📈 TradingView (Full Features)
+        </button>
+      </div>
+      
+      <!-- Lightweight Chart Container -->
+      <div id="lightweight_chart_container" class="chart-container active">
+        <div id="lightweight_chart"></div>
+      </div>
+      
+      <!-- TradingView Chart Container -->
+      <div id="tradingview_chart_container" class="chart-container">
+        <div id="tradingview_chart"></div>
+      </div>
       
       <!-- Position Marker Overlay -->
       <div id="positionMarker" class="position-marker" style="display:none;">
@@ -934,7 +1004,10 @@ router.get("/", (req: Request, res: Response) => {
   <script>
     // Global State
     let currentSymbol = 'AAPL';
+    let currentChartType = 'lightweight'; // 'lightweight' or 'tradingview'
     let tvWidget = null; // TradingView widget instance
+    let lwChart = null; // Lightweight Charts instance
+    let lwCandleSeries = null; // Lightweight Charts candlestick series
     let orderLines = {}; // Track drawn order lines {orderId: priceLine}
     let positionLines = {}; // Track position entry lines {symbol: priceLine}
     let positions = [];
@@ -1088,9 +1161,119 @@ router.get("/", (req: Request, res: Response) => {
       }
     }
 
+    // Switch between Lightweight and TradingView charts
+    function switchChart(chartType) {
+      console.log('Switching to', chartType, 'chart');
+      currentChartType = chartType;
+      
+      // Update tab styles
+      if (chartType === 'lightweight') {
+        document.getElementById('lwcTab').classList.add('active');
+        document.getElementById('tvTab').classList.remove('active');
+        document.getElementById('lightweight_chart_container').classList.add('active');
+        document.getElementById('tradingview_chart_container').classList.remove('active');
+        
+        // Initialize lightweight chart if not already
+        if (!lwChart) {
+          initLightweightChart(currentSymbol);
+        } else {
+          // Redraw lines on existing chart
+          redrawLightweightLines();
+        }
+      } else {
+        document.getElementById('lwcTab').classList.remove('active');
+        document.getElementById('tvTab').classList.add('active');
+        document.getElementById('lightweight_chart_container').classList.remove('active');
+        document.getElementById('tradingview_chart_container').classList.add('active');
+        
+        // Initialize TradingView chart if not already
+        if (!tvWidget) {
+          initTradingViewChart(currentSymbol);
+        }
+      }
+    }
+
+    // Initialize Lightweight Chart (with lines support)
+    function initLightweightChart(symbol) {
+      console.log('Initializing Lightweight Chart for:', symbol);
+      currentSymbolData.symbol = symbol;
+      
+      // Remove existing chart if any
+      if (lwChart) {
+        try {
+          lwChart.remove();
+        } catch (e) {
+          console.warn('Error removing LW chart:', e);
+        }
+        lwChart = null;
+        lwCandleSeries = null;
+      }
+      
+      // Clear old line references
+      orderLines = {};
+      positionLines = {};
+      
+      // Create new chart
+      const container = document.getElementById('lightweight_chart');
+      container.innerHTML = ''; // Clear container
+      
+      lwChart = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
+        height: container.clientHeight,
+        layout: {
+          background: { color: '#131722' },
+          textColor: '#D1D4DC',
+        },
+        grid: {
+          vertLines: { color: '#1E222D' },
+          horzLines: { color: '#1E222D' },
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal,
+        },
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+        },
+      });
+      
+      // Add candlestick series
+      lwCandleSeries = lwChart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderUpColor: '#26a69a',
+        borderDownColor: '#ef5350',
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
+      });
+      
+      // Load sample data
+      const sampleData = generateSampleData();
+      lwCandleSeries.setData(sampleData);
+      
+      // Auto-resize chart
+      const resizeObserver = new ResizeObserver(entries => {
+        if (lwChart) {
+          const { width, height } = entries[0].contentRect;
+          lwChart.applyOptions({ width, height });
+        }
+      });
+      resizeObserver.observe(container);
+      
+      // Fetch current price and draw lines
+      fetchCurrentPrice(symbol);
+      
+      // Redraw order/position lines after chart is ready
+      setTimeout(() => {
+        redrawLightweightLines();
+      }, 500);
+      
+      console.log('Lightweight Chart initialized successfully');
+    }
+
     // Initialize TradingView Advanced Chart
-    function initChart(symbol) {
-      console.log('initChart called with symbol:', symbol);
+    function initTradingViewChart(symbol) {
+      console.log('Initializing TradingView Chart for:', symbol);
       
       currentSymbolData.symbol = symbol;
       
@@ -1100,11 +1283,9 @@ router.get("/", (req: Request, res: Response) => {
           tvWidget.remove();
           console.log('Existing TradingView widget removed');
         } catch (e) {
-          console.warn('Error removing widget:', e);
+          console.warn('Error removing TV widget:', e);
         }
         tvWidget = null;
-        orderLines = {};
-        positionLines = {};
       }
 
       console.log('Creating TradingView Advanced Chart for:', symbol);
@@ -1172,20 +1353,99 @@ router.get("/", (req: Request, res: Response) => {
         // Wait for widget to be ready
         tvWidget.onChartReady(() => {
           console.log('TradingView widget ready');
-          
-          // Update current price when available
           fetchCurrentPrice(symbol);
-          
-          // Redraw order/position lines after chart is ready
-          setTimeout(() => {
-            drawOrderLinesOnTV();
-          }, 1000);
         });
 
         console.log('TradingView widget created successfully');
       } catch (error) {
         console.error('Error creating TradingView chart:', error);
         alert('Error loading TradingView chart. Please refresh the page.');
+      }
+    }
+    
+    // Main initChart function - delegates to appropriate chart type
+    function initChart(symbol) {
+      console.log('initChart called with symbol:', symbol, '| Chart type:', currentChartType);
+      currentSymbolData.symbol = symbol;
+      
+      if (currentChartType === 'lightweight') {
+        initLightweightChart(symbol);
+      } else {
+        initTradingViewChart(symbol);
+      }
+    }
+    
+    // Redraw all lines on Lightweight Chart
+    function redrawLightweightLines() {
+      if (!lwChart || !lwCandleSeries) {
+        console.log('No Lightweight Chart to draw lines on');
+        return;
+      }
+      
+      console.log('Redrawing lines on Lightweight Chart...');
+      console.log('Total orders:', pendingOrders.length);
+      console.log('Total positions:', positions.length);
+      
+      // Clear old price lines
+      for (let orderId in orderLines) {
+        try {
+          lwCandleSeries.removePriceLine(orderLines[orderId]);
+        } catch (e) {
+          console.warn('Error removing order line:', e);
+        }
+      }
+      for (let symbol in positionLines) {
+        try {
+          lwCandleSeries.removePriceLine(positionLines[symbol]);
+        } catch (e) {
+          console.warn('Error removing position line:', e);
+        }
+      }
+      orderLines = {};
+      positionLines = {};
+      
+      // Draw position lines
+      for (const position of positions) {
+        if (position.symbol === currentSymbolData.symbol) {
+          const color = position.quantity > 0 ? '#26a69a' : '#ef5350';
+          const side = position.quantity > 0 ? 'LONG' : 'SHORT';
+          const entryPrice = position.avgEntryPrice || position.avgPrice || 0;
+          
+          if (entryPrice > 0) {
+            const line = lwCandleSeries.createPriceLine({
+              price: entryPrice,
+              color: color,
+              lineWidth: 2,
+              lineStyle: LightweightCharts.LineStyle.Solid,
+              axisLabelVisible: true,
+              title: Math.abs(position.quantity) + ' ' + side + ' @ $' + entryPrice.toFixed(2),
+            });
+            positionLines[position.symbol] = line;
+            console.log('✅ Drew position line at $' + entryPrice.toFixed(2));
+          }
+        }
+      }
+      
+      // Draw pending order lines
+      for (const order of pendingOrders) {
+        if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
+          const price = order.stopPrice || order.limitPrice || 0;
+          if (!price || price <= 0) continue;
+          
+          const color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
+          const orderTypeLabel = order.orderType === 'STP' ? 'STOP' : 'LIMIT';
+          
+          const line = lwCandleSeries.createPriceLine({
+            price: price,
+            color: color,
+            lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: order.action + ' ' + orderTypeLabel + ' @ $' + price.toFixed(2),
+          });
+          orderLines[order.orderId] = line;
+          console.log('✅ Drew order line at $' + price.toFixed(2));
+        }
       }
     }
     
@@ -1217,26 +1477,18 @@ router.get("/", (req: Request, res: Response) => {
       }
     }
     
-    // Draw order and position lines on TradingView chart
-    function drawOrderLinesOnTV() {
-      if (!tvWidget) {
-        console.log('No tvWidget, skipping line drawing');
-        return;
+    // Redraw all order lines for current symbol
+    function redrawOrderLines() {
+      if (currentChartType === 'lightweight') {
+        redrawLightweightLines();
+      } else {
+        console.log('⚠️ TradingView chart does not support programmatic line drawing');
+        console.log('Total orders:', pendingOrders.length);
+        console.log('Pending stop orders:', pendingOrders.filter(o => o.status !== 'Filled' && o.status !== 'Cancelled').length);
       }
-      
-      console.log('⚠️ TradingView chart not ready for drawing, skipping lines');
-      console.log('Total orders:', pendingOrders.length);
-      console.log('Pending stop orders:', pendingOrders.filter(o => o.status !== 'Filled' && o.status !== 'Cancelled').length);
-      
-      // TradingView Advanced Charts doesn't support programmatic line drawing after initialization
-      // Lines must be drawn manually by the user using the drawing tools
-      // The widget is for viewing only - drawing shapes programmatically is not supported
     }
 
-    // TradingView handles chart data automatically
-    // No need for fetchChartData function anymore
-
-    // Generate sample candlestick data
+    // Generate sample candlestick data (for Lightweight Charts)
     function generateSampleData() {
       const data = [];
       
@@ -1278,14 +1530,6 @@ router.get("/", (req: Request, res: Response) => {
       }
       
       return data;
-    }
-
-    // Redraw all order lines for current symbol (TradingView version)
-    function redrawOrderLines() {
-      // TradingView version - use drawOrderLinesOnTV()
-      if (tvWidget) {
-        drawOrderLinesOnTV();
-      }
     }
 
     // Order Type Change Handler
