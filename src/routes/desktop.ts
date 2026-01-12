@@ -2067,31 +2067,31 @@ router.get("/", (req: Request, res: Response) => {
     }
 
     // Close Position Function
-    async function closePosition(symbol, currentQty) {
+    // Close Position Function
+    async function closePosition(symbol) {
       if (!confirm('Close position for ' + symbol + '?')) {
         return;
       }
 
       try {
-        const action = currentQty > 0 ? 'EXIT' : 'ENTRY_LONG';
-        const qty = Math.abs(currentQty);
+        // Find the position to get broker info
+        const position = positions.find(p => p.symbol === symbol);
+        if (!position) {
+          showNotification('Error', 'Position not found', 'error');
+          return;
+        }
 
-        const response = await fetch('/webhook/tradingview', {
+        const broker = position.broker || 'demo';
+
+        // Use the database close endpoint instead of webhook
+        const response = await fetch(\`/api/dashboard/positions/\${symbol}/close?broker=\${broker}\`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            strategy: 'manual_bmnr',
-            action: action,
-            symbol: symbol,
-            qty: qty,
-            orderType: 'MKT',
-            outsideRth: true
-          })
+          headers: { 'Content-Type': 'application/json' }
         });
 
         const result = await response.json();
 
-        if (response.ok && result.status === 'ok') {
+        if (response.ok && result.success) {
           showNotification('Position Closed', symbol + ' position closed', 'success');
           setTimeout(() => { fetchPositions(); fetchAccountSummary(); }, 1000);
         } else {
