@@ -72,6 +72,34 @@ class IbkrClient {
       }
     });
 
+    // 🔧 Open order events (triggered by reqAutoOpenOrders)
+    this.ib.on(
+      EventName.openOrder,
+      (orderId: number, contract: Contract, order: Order, orderState: any) => {
+        logger.info("📋 OPEN ORDER EVENT - Order update received!", {
+          orderId,
+          symbol: contract.symbol,
+          action: order.action,
+          totalQuantity: order.totalQuantity,
+          orderType: order.orderType,
+          status: orderState.status,
+          filled: order.filledQuantity || 0,
+          avgPrice: orderState.avgFillPrice || 0,
+        });
+
+        // Always process status updates from openOrder events
+        const trackedOrderId = this.orderIdMap.get(orderId);
+        if (trackedOrderId && orderState.status) {
+          logger.info("Processing order status from openOrder event", { orderId, trackedOrderId, status: orderState.status });
+          // Trigger the orderStatus handler with the data from openOrder
+          const filled = order.filledQuantity || 0;
+          const remaining = (order.totalQuantity || 0) - filled;
+          this.ib!.emit(EventName.orderStatus, orderId, orderState.status, filled, 
+            remaining, orderState.avgFillPrice || 0);
+        }
+      }
+    );
+
     // Order status events
     this.ib.on(
       EventName.orderStatus,
@@ -82,7 +110,7 @@ class IbkrClient {
         remaining: number,
         avgFillPrice: number
       ) => {
-        logger.info("Order status update", {
+        logger.info("✅ Order status update received!", {
           orderId,
           status,
           filled,
@@ -315,19 +343,6 @@ class IbkrClient {
       }
     );
 
-    this.ib.on(
-      EventName.openOrder,
-      (orderId: number, contract: Contract, order: Order, orderState: any) => {
-        logger.info("Open order", {
-          orderId,
-          symbol: contract.symbol,
-          action: order.action,
-          quantity: order.totalQuantity,
-          orderType: order.orderType,
-        });
-      }
-    );
-
     // Next valid order ID
     this.ib.on(EventName.nextValidId, (orderId: number) => {
       logger.info("Next valid order ID received", { orderId });
@@ -455,7 +470,7 @@ class IbkrClient {
       totalQuantity: request.quantity,
       orderType: request.orderType as OrderType,
       tif: request.timeInForce,
-      outsideRth: request.outsideRth,
+      outsideRth: request.outsideRth || false, // Allow after-hours trading if requested
     };
 
     // Add limit price for limit orders
@@ -560,6 +575,22 @@ class IbkrClient {
         action: request.action,
         quantity: request.quantity,
       });
+
+      // 🔧 AGGRESSIVE POLLING: Check order status multiple times
+      const pollForStatus = () => {
+        if (this.ib) {
+          logger.info("🔍 Polling for order status...", { orderId, trackedOrderId });
+          this.ib.reqAllOpenOrders();
+          this.ib.reqOpenOrders();
+        }
+      };
+      
+      // Poll immediately, then at 500ms, 1s, 2s, 4s
+      setTimeout(pollForStatus, 100);
+      setTimeout(pollForStatus, 500);
+      setTimeout(pollForStatus, 1000);
+      setTimeout(pollForStatus, 2000);
+      setTimeout(pollForStatus, 4000);
 
       const response: IbkrOrderResponse = {
         success: true,

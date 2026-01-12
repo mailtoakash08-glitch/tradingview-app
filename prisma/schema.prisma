@@ -65,11 +65,11 @@ model Position {
   // Relations
   trades           Trade[]
   
-  @@unique([symbol, broker, isOpen]) // Only one open position per symbol per broker
   @@index([symbol])
   @@index([broker])
   @@index([isOpen])
   @@index([openedAt])
+  @@index([symbol, broker, isOpen]) // Allow searching for open positions easily
 }
 
 // ============================================

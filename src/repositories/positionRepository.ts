@@ -26,33 +26,43 @@ export class PositionRepository {
    */
   async upsert(position: Position): Promise<void> {
     try {
-      await prisma.position.upsert({
+      // Since we removed the unique constraint, we need to manually check if position exists
+      const existingPosition = await prisma.position.findFirst({
         where: {
-          symbol_broker_isOpen: {
-            symbol: position.symbol,
-            broker: position.broker,
-            isOpen: true,
-          },
-        },
-        update: {
-          quantity: position.quantity,
-          avgEntryPrice: position.avgEntryPrice,
-          currentPrice: position.currentPrice,
-          unrealizedPnL: position.unrealizedPnL,
-          realizedPnL: position.realizedPnL || 0,
-        },
-        create: {
           symbol: position.symbol,
           broker: position.broker,
-          strategy: position.strategy,
-          quantity: position.quantity,
-          avgEntryPrice: position.avgEntryPrice,
-          currentPrice: position.currentPrice,
-          unrealizedPnL: position.unrealizedPnL,
-          realizedPnL: position.realizedPnL || 0,
           isOpen: true,
         },
       });
+
+      if (existingPosition) {
+        // Update existing position
+        await prisma.position.update({
+          where: { id: existingPosition.id },
+          data: {
+            quantity: position.quantity,
+            avgEntryPrice: position.avgEntryPrice,
+            currentPrice: position.currentPrice,
+            unrealizedPnL: position.unrealizedPnL,
+            realizedPnL: position.realizedPnL || 0,
+          },
+        });
+      } else {
+        // Create new position
+        await prisma.position.create({
+          data: {
+            symbol: position.symbol,
+            broker: position.broker,
+            strategy: position.strategy,
+            quantity: position.quantity,
+            avgEntryPrice: position.avgEntryPrice,
+            currentPrice: position.currentPrice,
+            unrealizedPnL: position.unrealizedPnL,
+            realizedPnL: position.realizedPnL || 0,
+            isOpen: true,
+          },
+        });
+      }
     } catch (error) {
       console.error('Error upserting position in database:', error);
       throw error;
