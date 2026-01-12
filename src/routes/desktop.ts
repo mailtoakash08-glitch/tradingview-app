@@ -1217,35 +1217,53 @@ router.get("/", (req: Request, res: Response) => {
       const container = document.getElementById('lightweight_chart');
       container.innerHTML = ''; // Clear container
       
-      lwChart = LightweightCharts.createChart(container, {
-        width: container.clientWidth,
-        height: container.clientHeight,
-        layout: {
-          background: { color: '#131722' },
-          textColor: '#D1D4DC',
-        },
-        grid: {
-          vertLines: { color: '#1E222D' },
-          horzLines: { color: '#1E222D' },
-        },
-        crosshair: {
-          mode: LightweightCharts.CrosshairMode.Normal,
-        },
-        timeScale: {
-          timeVisible: true,
-          secondsVisible: false,
-        },
-      });
+      // Check if LightweightCharts is available
+      if (typeof LightweightCharts === 'undefined') {
+        console.error('LightweightCharts library not loaded!');
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#D1D4DC;">LightweightCharts library failed to load. Please refresh the page.</div>';
+        return;
+      }
       
-      // Add candlestick series
-      lwCandleSeries = lwChart.addCandlestickSeries({
-        upColor: '#26a69a',
-        downColor: '#ef5350',
-        borderUpColor: '#26a69a',
-        borderDownColor: '#ef5350',
-        wickUpColor: '#26a69a',
-        wickDownColor: '#ef5350',
-      });
+      try {
+        lwChart = LightweightCharts.createChart(container, {
+          width: container.clientWidth,
+          height: container.clientHeight,
+          layout: {
+            background: { color: '#131722' },
+            textColor: '#D1D4DC',
+          },
+          grid: {
+            vertLines: { color: '#1E222D' },
+            horzLines: { color: '#1E222D' },
+          },
+          crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+          },
+          timeScale: {
+            timeVisible: true,
+            secondsVisible: false,
+          },
+        });
+        
+        console.log('Lightweight chart created:', lwChart);
+        console.log('Chart methods:', Object.keys(lwChart));
+        
+        // Add candlestick series
+        lwCandleSeries = lwChart.addCandlestickSeries({
+          upColor: '#26a69a',
+          downColor: '#ef5350',
+          borderUpColor: '#26a69a',
+          borderDownColor: '#ef5350',
+          wickUpColor: '#26a69a',
+          wickDownColor: '#ef5350',
+        });
+        
+        console.log('Candlestick series created:', lwCandleSeries);
+      } catch (error) {
+        console.error('Error creating Lightweight Chart:', error);
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#D1D4DC;flex-direction:column;"><div>Error creating chart</div><div style="font-size:12px;color:#787B86;margin-top:8px;">' + error.message + '</div></div>';
+        return;
+      }
       
       // Load sample data
       const sampleData = generateSampleData();
@@ -2205,17 +2223,22 @@ router.get("/", (req: Request, res: Response) => {
     document.getElementById('addWatchlistBtn').addEventListener('click', addToWatchlist);
     document.getElementById('watchlistSearch').addEventListener('keyup', filterWatchlist);
     
-    if (typeof TradingView !== 'undefined') {
-      console.log('TradingView library found immediately');
+    // Wait for all libraries to load
+    console.log('Page loaded, checking for TradingView library...');
+    console.log('TradingView loaded:', typeof TradingView !== 'undefined');
+    console.log('LightweightCharts loaded:', typeof LightweightCharts !== 'undefined');
+    
+    if (typeof LightweightCharts !== 'undefined') {
+      console.log('LightweightCharts library found immediately');
       renderWatchlist();
-    initChart(currentSymbol);
+      initChart(currentSymbol);
     } else {
-      console.log('Waiting for TradingView library to load...');
-      // Wait for TradingView library to load
-      const checkTradingView = setInterval(() => {
-        if (typeof TradingView !== 'undefined') {
-          console.log('TradingView library loaded!');
-          clearInterval(checkTradingView);
+      console.log('Waiting for LightweightCharts library to load...');
+      // Wait for Lightweight Charts library to load
+      const checkLibraries = setInterval(() => {
+        if (typeof LightweightCharts !== 'undefined') {
+          console.log('LightweightCharts library loaded!');
+          clearInterval(checkLibraries);
           renderWatchlist();
           initChart(currentSymbol);
         }
@@ -2223,6 +2246,13 @@ router.get("/", (req: Request, res: Response) => {
       
       // Timeout after 10 seconds
       setTimeout(() => {
+        clearInterval(checkLibraries);
+        if (typeof LightweightCharts === 'undefined') {
+          console.error('LightweightCharts failed to load after 10 seconds!');
+          alert('Error loading chart library. Please refresh the page.');
+        }
+      }, 10000);
+    }
         if (typeof TradingView === 'undefined') {
           console.error('TradingView library failed to load after 10 seconds');
           alert('TradingView chart library failed to load. Please check your internet connection and refresh.');
