@@ -783,7 +783,7 @@ router.get("/", (req: Request, res: Response) => {
       
       <!-- TradingView Chart Container -->
       <div id="tradingview_chart_container" class="chart-container">
-        <div id="tradingview_chart"></div>
+      <div id="tradingview_chart"></div>
       </div>
       
       <!-- Position Marker Overlay -->
@@ -1220,7 +1220,7 @@ router.get("/", (req: Request, res: Response) => {
         // Initialize TradingView chart if not already
         if (!tvWidget) {
           initTradingViewChart(currentSymbol);
-        }
+      }
       }
     }
 
@@ -1241,8 +1241,8 @@ router.get("/", (req: Request, res: Response) => {
       }
       
       // Clear old line references
-      orderLines = {};
-      positionLines = {};
+        orderLines = {};
+        positionLines = {};
       
       // Create new chart
       const container = document.getElementById('lightweight_chart');
@@ -1275,7 +1275,7 @@ router.get("/", (req: Request, res: Response) => {
             secondsVisible: false,
           },
         });
-        
+
         console.log('Lightweight chart created:', lwChart);
         console.log('Chart type:', typeof lwChart);
         console.log('Has addCandlestickSeries?', typeof lwChart.addCandlestickSeries);
@@ -1294,7 +1294,7 @@ router.get("/", (req: Request, res: Response) => {
           wickUpColor: '#26a69a',
           wickDownColor: '#ef5350',
         });
-        
+
         console.log('Candlestick series created:', lwCandleSeries);
       } catch (error) {
         console.error('Error creating Lightweight Chart:', error);
@@ -1322,7 +1322,7 @@ router.get("/", (req: Request, res: Response) => {
       setTimeout(() => {
         redrawLightweightLines();
       }, 500);
-      
+
       console.log('Lightweight Chart initialized successfully');
     }
     
@@ -1347,7 +1347,8 @@ router.get("/", (req: Request, res: Response) => {
         }
         
         const chartData = result.data.chartData;
-        console.log('Loaded', chartData.length, 'candles from real market data');
+        console.log('Loaded', chartData.length, 'candles from', result.data.dataSource || 'market data');
+        console.log('Current price:', result.data.currentPrice, '| Last update:', result.data.lastUpdate);
         
         // Update the chart with real data
         lwCandleSeries.setData(chartData);
@@ -1456,7 +1457,7 @@ router.get("/", (req: Request, res: Response) => {
         alert('Error loading TradingView chart. Please refresh the page.');
       }
     }
-    
+
     // Main initChart function - delegates to appropriate chart type
     function initChart(symbol) {
       console.log('initChart called with symbol:', symbol, '| Chart type:', currentChartType);
@@ -1479,7 +1480,7 @@ router.get("/", (req: Request, res: Response) => {
       console.log('Redrawing lines on Lightweight Chart...');
       console.log('Total orders:', pendingOrders.length);
       console.log('Total positions:', positions.length);
-      
+
       // Clear old price lines
       for (let orderId in orderLines) {
         try {
@@ -1497,7 +1498,7 @@ router.get("/", (req: Request, res: Response) => {
       }
       orderLines = {};
       positionLines = {};
-      
+
       // Draw position lines
       for (const position of positions) {
         if (position.symbol === currentSymbolData.symbol) {
@@ -1519,7 +1520,7 @@ router.get("/", (req: Request, res: Response) => {
           }
         }
       }
-      
+
       // Draw pending order lines
       for (const order of pendingOrders) {
         if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
@@ -1579,8 +1580,8 @@ router.get("/", (req: Request, res: Response) => {
         console.log('⚠️ TradingView chart does not support programmatic line drawing');
         console.log('Total orders:', pendingOrders.length);
         console.log('Pending stop orders:', pendingOrders.filter(o => o.status !== 'Filled' && o.status !== 'Cancelled').length);
+        }
       }
-    }
 
     // Generate sample candlestick data (for Lightweight Charts)
     function generateSampleData() {
@@ -2308,7 +2309,7 @@ router.get("/", (req: Request, res: Response) => {
     if (typeof LightweightCharts !== 'undefined') {
       console.log('LightweightCharts library found immediately');
       renderWatchlist();
-      initChart(currentSymbol);
+    initChart(currentSymbol);
     } else {
       console.log('Waiting for LightweightCharts library to load...');
       // Wait for Lightweight Charts library to load

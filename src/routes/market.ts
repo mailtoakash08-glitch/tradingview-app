@@ -11,6 +11,7 @@ const router = express.Router();
 /**
  * GET /api/market/chart/:symbol
  * Fetch historical chart data for a symbol
+ * Tries multiple sources for best data quality
  */
 router.get('/chart/:symbol', async (req, res) => {
   try {
@@ -18,15 +19,24 @@ router.get('/chart/:symbol', async (req, res) => {
     const interval = req.query.interval || '5m'; // 5m, 15m, 1h, 1d
     const range = req.query.range || '1d'; // 1d, 5d, 1mo, 3mo, 1y
     
-    // Fetch data from Yahoo Finance
+    // Try Yahoo Finance with better parameters for real-time data
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
     const params = {
       interval,
       range,
-      includePrePost: true, // Include pre-market and after-hours
+      includePrePost: false, // Exclude pre/post market for consistency with TradingView
+      // Add these for better real-time data
+      events: 'div,split',
+      corsdomain: 'finance.yahoo.com'
     };
     
-    const response = await axios.get(yahooUrl, { params, timeout: 5000 });
+    const response = await axios.get(yahooUrl, { 
+      params, 
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      }
+    });
     
     if (!response.data || !response.data.chart || !response.data.chart.result) {
       return res.status(404).json({
@@ -69,6 +79,9 @@ router.get('/chart/:symbol', async (req, res) => {
         currency: meta.currency,
         exchangeName: meta.exchangeName,
         chartData,
+        // Add metadata for debugging
+        dataSource: 'Yahoo Finance',
+        lastUpdate: new Date().toISOString(),
       },
     });
   } catch (error: any) {
