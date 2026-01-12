@@ -24,8 +24,8 @@ router.get("/", (req: Request, res: Response) => {
   <title>Trading Desktop - IBKR</title>
   <!-- TradingView Advanced Charts Widget -->
   <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-  <!-- Lightweight Charts Library -->
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Lightweight Charts Library v4.1.0 -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     * {
       margin: 0;
@@ -1246,7 +1246,13 @@ router.get("/", (req: Request, res: Response) => {
         });
         
         console.log('Lightweight chart created:', lwChart);
-        console.log('Chart methods:', Object.keys(lwChart));
+        console.log('Chart type:', typeof lwChart);
+        console.log('Has addCandlestickSeries?', typeof lwChart.addCandlestickSeries);
+        
+        // Check if method exists before calling
+        if (typeof lwChart.addCandlestickSeries !== 'function') {
+          throw new Error('LightweightCharts API mismatch - addCandlestickSeries not found. Chart object: ' + Object.keys(lwChart).join(', '));
+        }
         
         // Add candlestick series
         lwCandleSeries = lwChart.addCandlestickSeries({
@@ -1261,6 +1267,7 @@ router.get("/", (req: Request, res: Response) => {
         console.log('Candlestick series created:', lwCandleSeries);
       } catch (error) {
         console.error('Error creating Lightweight Chart:', error);
+        console.error('Error details:', error.message);
         container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#D1D4DC;flex-direction:column;"><div>Error creating chart</div><div style="font-size:12px;color:#787B86;margin-top:8px;">' + error.message + '</div></div>';
         return;
       }
@@ -1365,13 +1372,13 @@ router.get("/", (req: Request, res: Response) => {
           favorites: {
             intervals: ['1', '5', '15', '60', '240', 'D', 'W'],
             chartTypes: ['Area', 'Candles', 'Line']
+          },
+          
+          // Add onChartReady callback during initialization
+          onChartReady: () => {
+            console.log('TradingView widget ready');
+            fetchCurrentPrice(symbol);
           }
-        });
-
-        // Wait for widget to be ready
-        tvWidget.onChartReady(() => {
-          console.log('TradingView widget ready');
-          fetchCurrentPrice(symbol);
         });
 
         console.log('TradingView widget created successfully');
