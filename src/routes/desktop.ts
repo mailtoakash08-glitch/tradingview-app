@@ -1159,6 +1159,37 @@ router.get("/", (req: Request, res: Response) => {
           removeFromWatchlist(symbol);
         });
       }
+      
+      // Fetch real prices for all symbols
+      updateWatchlistPrices();
+    }
+    
+    // Update watchlist with real prices
+    async function updateWatchlistPrices() {
+      for (const symbol of watchlist) {
+        try {
+          const response = await fetch(\`/api/market/quote/\${symbol}\`);
+          const result = await response.json();
+          
+          if (result.success && result.data) {
+            const priceEl = document.getElementById('price-' + symbol);
+            const changeEl = document.getElementById('change-' + symbol);
+            
+            if (priceEl) {
+              priceEl.textContent = '$' + result.data.price.toFixed(2);
+            }
+            
+            if (changeEl) {
+              const changePercent = result.data.changePercent.toFixed(2);
+              const changeClass = result.data.change >= 0 ? 'positive' : 'negative';
+              changeEl.textContent = (result.data.change >= 0 ? '+' : '') + changePercent + '%';
+              changeEl.className = 'watchlist-change ' + changeClass;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching price for', symbol, error);
+        }
+      }
     }
 
     // Switch between Lightweight and TradingView charts
@@ -1272,10 +1303,6 @@ router.get("/", (req: Request, res: Response) => {
         return;
       }
       
-      // Load sample data
-      const sampleData = generateSampleData();
-      lwCandleSeries.setData(sampleData);
-      
       // Auto-resize chart
       const resizeObserver = new ResizeObserver(entries => {
         if (lwChart) {
@@ -1284,6 +1311,9 @@ router.get("/", (req: Request, res: Response) => {
         }
       });
       resizeObserver.observe(container);
+      
+      // Load real market data
+      loadMarketDataForLightweightChart(symbol);
       
       // Fetch current price and draw lines
       fetchCurrentPrice(symbol);
@@ -1294,6 +1324,45 @@ router.get("/", (req: Request, res: Response) => {
       }, 500);
       
       console.log('Lightweight Chart initialized successfully');
+    }
+    
+    // Load real market data for Lightweight Chart
+    async function loadMarketDataForLightweightChart(symbol) {
+      if (!lwCandleSeries) {
+        console.warn('Cannot load market data - candlestick series not initialized');
+        return;
+      }
+      
+      try {
+        console.log('Fetching real market data for:', symbol);
+        const response = await fetch(\`/api/market/chart/\${symbol}?interval=5m&range=1d\`);
+        const result = await response.json();
+        
+        if (!result.success || !result.data || !result.data.chartData) {
+          console.error('Failed to fetch market data:', result.error);
+          // Fallback to sample data
+          const sampleData = generateSampleData();
+          lwCandleSeries.setData(sampleData);
+          return;
+        }
+        
+        const chartData = result.data.chartData;
+        console.log('Loaded', chartData.length, 'candles from real market data');
+        
+        // Update the chart with real data
+        lwCandleSeries.setData(chartData);
+        
+        // Update current price in the UI
+        if (result.data.currentPrice) {
+          currentSymbolData.currentPrice = result.data.currentPrice;
+          updatePositionMarker();
+        }
+      } catch (error) {
+        console.error('Error loading market data:', error);
+        // Fallback to sample data on error
+        const sampleData = generateSampleData();
+        lwCandleSeries.setData(sampleData);
+      }
     }
 
     // Initialize TradingView Advanced Chart
@@ -2178,6 +2247,7 @@ router.get("/", (req: Request, res: Response) => {
       fetchPositions();
       fetchAccountSummary();
       fetchPendingOrders();
+      updateWatchlistPrices(); // Update watchlist with real prices
     }, 10000);
     
     // Make position marker draggable
