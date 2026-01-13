@@ -822,7 +822,7 @@ router.get("/", (req: Request, res: Response) => {
       
       <form id="trading-form">
         <div class="form-group">
-          <label>Broker</label>
+          <label>Broker <span id="brokerStatus" style="font-size: 0.85em; opacity: 0.7;">⏳ Checking...</span></label>
           <select id="broker">
             <option value="demo">🎮 DEMO MODE (No Real Money)</option>
             <option value="ibkr">🏦 Interactive Brokers</option>
@@ -1858,6 +1858,33 @@ router.get("/", (req: Request, res: Response) => {
       }
     }
 
+    // Check Broker Status
+    async function checkBrokerStatus() {
+      try {
+        const response = await fetch('/admin/broker-status');
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          const selectedBroker = document.getElementById('broker').value;
+          const statusEl = document.getElementById('brokerStatus');
+          
+          if (data.brokers[selectedBroker]) {
+            const broker = data.brokers[selectedBroker];
+            if (broker.connected) {
+              statusEl.textContent = '✅ Connected';
+              statusEl.style.color = '#4caf50';
+            } else {
+              statusEl.textContent = '❌ Disconnected';
+              statusEl.style.color = '#f44336';
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking broker status:', error);
+        document.getElementById('brokerStatus').textContent = '⚠️ Unknown';
+      }
+    }
+
     // Fetch Pending Orders
     async function fetchPendingOrders() {
       try {
@@ -2346,6 +2373,13 @@ router.get("/", (req: Request, res: Response) => {
     fetchPositions();
     fetchAccountSummary();
     fetchPendingOrders();
+    checkBrokerStatus();
+    
+    // Check broker status when broker selection changes
+    document.getElementById('broker').addEventListener('change', checkBrokerStatus);
+    
+    // Update broker status every 10 seconds
+    setInterval(checkBrokerStatus, 10000);
   </script>
 </body>
 </html>
