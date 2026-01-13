@@ -209,6 +209,38 @@ router.get("/", (req: Request, res: Response) => {
       border-bottom-color: #2962FF;
     }
     
+    /* Order Filter Tabs */
+    .order-filter-tabs {
+      display: flex;
+      background: #1E222D;
+      border-bottom: 1px solid #2A2E39;
+      padding: 5px 10px;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    
+    .order-tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: #787B86;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    
+    .order-tab:hover {
+      color: #D1D4DC;
+      background: rgba(41, 98, 255, 0.1);
+    }
+    
+    .order-tab.active {
+      color: #2962FF;
+      background: rgba(41, 98, 255, 0.15);
+    }
+    
     /* Chart Containers */
     .chart-container {
       flex: 1;
@@ -645,6 +677,32 @@ router.get("/", (req: Request, res: Response) => {
       color: #D1D4DC;
     }
 
+    #pendingOrdersContainer {
+      max-height: 400px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin-top: 10px;
+    }
+
+    /* Scrollbar styling for pending orders */
+    #pendingOrdersContainer::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #pendingOrdersContainer::-webkit-scrollbar-track {
+      background: #131722;
+      border-radius: 4px;
+    }
+
+    #pendingOrdersContainer::-webkit-scrollbar-thumb {
+      background: #2A2E39;
+      border-radius: 4px;
+    }
+
+    #pendingOrdersContainer::-webkit-scrollbar-thumb:hover {
+      background: #363A45;
+    }
+
     #pendingOrdersTable {
       width: 100%;
       border-collapse: collapse;
@@ -974,8 +1032,27 @@ router.get("/", (req: Request, res: Response) => {
     <!-- Pending Orders Section -->
     <div class="pending-orders-section">
       <div class="pending-orders-header">
-        <div class="pending-orders-title">⏱️ Pending Stop Orders</div>
+        <div class="pending-orders-title">⏱️ Pending Orders</div>
         <button class="refresh-btn" id="refreshOrdersBtn" title="Refresh Orders">↻</button>
+      </div>
+      
+      <!-- Order Type Filter Tabs -->
+      <div class="order-filter-tabs">
+        <button class="order-tab active" data-filter="ALL" onclick="filterOrdersByType('ALL')">
+          📋 All
+        </button>
+        <button class="order-tab" data-filter="MKT" onclick="filterOrdersByType('MKT')">
+          🎯 Market
+        </button>
+        <button class="order-tab" data-filter="LMT" onclick="filterOrdersByType('LMT')">
+          📊 Limit
+        </button>
+        <button class="order-tab" data-filter="STP" onclick="filterOrdersByType('STP')">
+          🛑 Stop
+        </button>
+        <button class="order-tab" data-filter="TRAIL" onclick="filterOrdersByType('TRAIL')">
+          📉 Trailing
+        </button>
       </div>
       
       <div id="pendingOrdersContainer">
@@ -1005,6 +1082,7 @@ router.get("/", (req: Request, res: Response) => {
     // Global State
     let currentSymbol = 'AAPL';
     let currentChartType = 'lightweight'; // 'lightweight' or 'tradingview'
+    let currentOrderFilter = 'ALL'; // Filter for pending orders: 'ALL', 'MKT', 'LMT', 'STP', 'TRAIL'
     let tvWidget = null; // TradingView widget instance
     let lwChart = null; // Lightweight Charts instance
     let lwCandleSeries = null; // Lightweight Charts candlestick series
@@ -1896,13 +1974,14 @@ router.get("/", (req: Request, res: Response) => {
         if (response.ok && data.data && data.data.orders) {
           console.log('Total orders:', data.data.orders.length); // Debug
           
-          // Filter for pending stop orders only
+          // Show ALL pending orders (not just stop orders)
           pendingOrders = data.data.orders.filter(order => 
-            (order.orderType === 'STP' || order.orderType === 'TRAIL') &&
-            (order.status === 'PENDING' || order.status === 'PreSubmitted' || order.status === 'Submitted')
+            order.status === 'PENDING' || 
+            order.status === 'PreSubmitted' || 
+            order.status === 'Submitted'
           );
           
-          console.log('Pending stop orders:', pendingOrders.length); // Debug
+          console.log('All pending orders:', pendingOrders.length); // Debug
           updatePendingOrdersTable();
         }
       } catch (error) {
@@ -1910,25 +1989,64 @@ router.get("/", (req: Request, res: Response) => {
       }
     }
 
+    // Filter Orders by Type
+    function filterOrdersByType(orderType) {
+      currentOrderFilter = orderType;
+      
+      // Update tab active state
+      document.querySelectorAll('.order-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.getAttribute('data-filter') === orderType) {
+          tab.classList.add('active');
+        }
+      });
+      
+      // Redraw table with filter applied
+      updatePendingOrdersTable();
+    }
+
     // Update Pending Orders Table
     function updatePendingOrdersTable() {
       const tbody = document.getElementById('pendingOrdersBody');
       
-      if (pendingOrders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No pending stop orders</td></tr>';
+      // Apply filter
+      let filteredOrders = pendingOrders;
+      if (currentOrderFilter !== 'ALL') {
+        filteredOrders = pendingOrders.filter(order => order.orderType === currentOrderFilter);
+      }
+      
+      if (filteredOrders.length === 0) {
+        const filterText = currentOrderFilter === 'ALL' ? 'pending orders' : currentOrderFilter + ' orders';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No ' + filterText + '</td></tr>';
         // Redraw lines (will clear order lines if empty)
         if (tvWidget) redrawOrderLines();
         return;
       }
 
-      tbody.innerHTML = pendingOrders.map(order => {
+      tbody.innerHTML = filteredOrders.map(order => {
         const sideClass = order.action === 'BUY' ? 'order-side-buy' : 'order-side-sell';
-        const triggerPrice = order.stopPrice || order.trailingAmount || '-';
+        
+        // Determine trigger price based on order type
+        let triggerPrice = '-';
+        if (order.orderType === 'LMT' && order.limitPrice) {
+          triggerPrice = order.limitPrice;
+        } else if (order.orderType === 'STP' && order.stopPrice) {
+          triggerPrice = order.stopPrice;
+        } else if (order.orderType === 'TRAIL' && order.trailingAmount) {
+          triggerPrice = order.trailingAmount;
+        }
+        
+        // Determine order type display
+        let orderTypeDisplay = order.orderType;
+        if (order.orderType === 'TRAIL') orderTypeDisplay = 'TRAILING';
+        if (order.orderType === 'LMT') orderTypeDisplay = 'LIMIT';
+        if (order.orderType === 'STP') orderTypeDisplay = 'STOP';
+        if (order.orderType === 'MKT') orderTypeDisplay = 'MARKET';
         
         return \`
           <tr>
             <td class="symbol-cell">\${order.symbol}</td>
-            <td>\${order.orderType === 'TRAIL' ? 'TRAILING' : 'STOP'}</td>
+            <td>\${orderTypeDisplay}</td>
             <td class="order-trigger">$\${typeof triggerPrice === 'number' ? triggerPrice.toFixed(2) : triggerPrice}</td>
             <td>\${order.quantity}</td>
             <td class="\${sideClass}">\${order.action}</td>
