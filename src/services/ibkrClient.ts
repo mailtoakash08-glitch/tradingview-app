@@ -72,6 +72,16 @@ class IbkrClient {
       }
     });
 
+    // 🔍 DEBUG: Log ALL events from IB Gateway
+    this.ib.on(EventName.all, (eventName: string, ...args: any[]) => {
+      // Only log order-related events to avoid spam
+      if (eventName.toLowerCase().includes('order') || 
+          eventName.toLowerCase().includes('exec') ||
+          eventName.toLowerCase().includes('position')) {
+        logger.info(`🔔 IB Gateway Event: ${eventName}`, { args });
+      }
+    });
+
     // 🔧 Open order events (triggered by reqAutoOpenOrders)
     this.ib.on(
       EventName.openOrder,
@@ -100,6 +110,11 @@ class IbkrClient {
       }
     );
 
+    // Open order end event - fires after reqAllOpenOrders() completes
+    this.ib.on(EventName.openOrderEnd, () => {
+      logger.info("📋 openOrderEnd event received - all open orders loaded");
+    });
+
     // Order status events
     this.ib.on(
       EventName.orderStatus,
@@ -108,7 +123,13 @@ class IbkrClient {
         status: string,
         filled: number,
         remaining: number,
-        avgFillPrice: number
+        avgFillPrice: number,
+        permId?: number,
+        parentId?: number,
+        lastFillPrice?: number,
+        clientId?: number,
+        whyHeld?: string,
+        mktCapPrice?: number
       ) => {
         logger.info("✅ Order status update received!", {
           orderId,
@@ -116,6 +137,8 @@ class IbkrClient {
           filled,
           remaining,
           avgFillPrice,
+          clientId,
+          whyHeld,
         });
 
         // Map IBKR orderId to our trackedOrderId
@@ -407,7 +430,7 @@ class IbkrClient {
 
       // Subscribe to automatic order status updates
       this.ib!.reqAutoOpenOrders(true);
-      logger.info("Subscribed to automatic order updates");
+      logger.info("✅ Subscribed to automatic order updates via reqAutoOpenOrders(true)");
 
       // Request account updates for positions
       if (config.ibkr.accountId) {
@@ -576,8 +599,17 @@ class IbkrClient {
         quantity: request.quantity,
       });
 
-      // ✅ Rely on reqAutoOpenOrders(true) for automatic updates
-      // No manual polling needed - IB Gateway will push updates automatically
+      // 🔍 DIAGNOSTIC: Manually request order status updates
+      // reqAutoOpenOrders(true) should handle this, but let's force it
+      logger.info("🔍 Manually requesting order status for debugging", { orderId });
+      
+      // Request all open orders to trigger events
+      try {
+        this.ib.reqAllOpenOrders();
+        logger.info("✅ Called reqAllOpenOrders()");
+      } catch (err: any) {
+        logger.error("❌ Failed to call reqAllOpenOrders()", { error: err.message });
+      }
 
       const response: IbkrOrderResponse = {
         success: true,
