@@ -36,15 +36,20 @@ export class PositionRepository {
       });
 
       if (existingPosition) {
-        // Update existing position
+        // Update existing position - ADD to quantity and recalculate average entry price
+        const newQuantity = existingPosition.quantity + position.quantity;
+        const newAvgEntryPrice = 
+          (existingPosition.avgEntryPrice * existingPosition.quantity + 
+           position.avgEntryPrice * position.quantity) / newQuantity;
+        
         await prisma.position.update({
           where: { id: existingPosition.id },
           data: {
-            quantity: position.quantity,
-            avgEntryPrice: position.avgEntryPrice,
+            quantity: newQuantity,
+            avgEntryPrice: newAvgEntryPrice,
             currentPrice: position.currentPrice,
-            unrealizedPnL: position.unrealizedPnL,
-            realizedPnL: position.realizedPnL || 0,
+            unrealizedPnL: (position.currentPrice - newAvgEntryPrice) * newQuantity,
+            realizedPnL: (existingPosition.realizedPnL || 0) + (position.realizedPnL || 0),
           },
         });
       } else {

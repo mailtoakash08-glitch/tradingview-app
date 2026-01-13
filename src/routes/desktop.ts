@@ -44,14 +44,14 @@ router.get("/", (req: Request, res: Response) => {
     /* Main Container */
     .trading-container {
       display: grid;
-      grid-template-columns: 250px 1fr 420px;
-      grid-template-rows: minmax(400px, 1fr) 320px;
+      grid-template-columns: 250px 1fr 380px;
+      grid-template-rows: 1fr 280px;
       height: 100vh;
       gap: 1px;
       background: #000;
     }
 
-    /* Watchlist Panel - LEFT Column, spans 2 rows */
+    /* Watchlist Panel (Left Sidebar) */
     .watchlist-panel {
       background: #1E222D;
       padding: 15px;
@@ -61,36 +61,35 @@ router.get("/", (req: Request, res: Response) => {
       border-radius: 0;
     }
 
-    /* Chart Section - MIDDLE Column, spans 2 rows */
+    /* Chart Area (Top Middle) */
     .chart-section {
-      grid-column: 2 / 3;
-      grid-row: 1 / 3;
-      background: #1E222D;
+      background: #131722;
       position: relative;
-      overflow: hidden;
+      grid-row: 1 / 2;
+      grid-column: 2 / 3;
       display: flex;
       flex-direction: column;
     }
 
-    /* Combined Panel (Positions + Pending Orders) - Top Row, RIGHT Column */
-    .combined-panel {
-      grid-column: 3 / 4;
+    /* Trading Panel (Top Right) */
+    .trading-panel {
+      background: #1E222D;
+      padding: 20px;
+      overflow-y: auto;
       grid-row: 1 / 2;
+      grid-column: 3 / 4;
+      border-radius: 0;
+    }
+
+    /* Combined Panel - Now positioned at bottom, full width */
+    .combined-panel {
+      grid-column: 2 / 4;
+      grid-row: 2 / 3;
       background: #1E222D;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       min-height: 0;
-    }
-
-    /* Trading Panel - Bottom Row, RIGHT Column */
-    .trading-panel {
-      grid-column: 3 / 4;
-      grid-row: 2 / 3;
-      background: #1E222D;
-      padding: 20px;
-      overflow-y: auto;
-      border-radius: 0;
     }
 
     .watchlist-header {
@@ -964,7 +963,11 @@ router.get("/", (req: Request, res: Response) => {
       
       <form id="trading-form">
         <div class="form-group">
-          <label>Broker <span id="brokerStatus" style="font-size: 0.85em; opacity: 0.7;">⏳ Checking...</span></label>
+          <label>
+            Broker 
+            <span id="brokerStatus" style="font-size: 0.85em; opacity: 0.7;">⏳ Checking...</span>
+            <button type="button" id="syncOrdersBtn" style="font-size: 0.75em; margin-left: 8px; padding: 2px 8px; background: #4CAF50; border: none; border-radius: 3px; color: white; cursor: pointer; display: none;" title="Sync orders from TWS">🔄 Sync</button>
+          </label>
           <select id="broker">
             <option value="demo">🎮 DEMO MODE (No Real Money)</option>
             <option value="ibkr">🏦 Interactive Brokers</option>
@@ -2017,7 +2020,8 @@ router.get("/", (req: Request, res: Response) => {
     // Fetch Positions
     async function fetchPositions() {
       try {
-        const response = await fetch('/api/dashboard/positions');
+        const selectedBroker = document.getElementById('broker').value;
+        const response = await fetch('/api/dashboard/positions?broker=' + selectedBroker);
         const data = await response.json();
         
         if (response.ok) {
@@ -2033,7 +2037,9 @@ router.get("/", (req: Request, res: Response) => {
     // Fetch Account Summary
     async function fetchAccountSummary() {
       try {
-        const response = await fetch('/api/dashboard/account');
+        // Get the selected broker from the UI
+        const selectedBroker = document.getElementById('broker').value;
+        const response = await fetch(\`/api/dashboard/account?broker=\${selectedBroker}\`);
         const result = await response.json();
         
         if (response.ok) {
@@ -2041,9 +2047,12 @@ router.get("/", (req: Request, res: Response) => {
           const data = result.data || result;
           accountData = {
             balance: data.balance || 0,
-            unrealizedPnL: data.totalPnL || 0, // Use totalPnL from backend
-            realizedPnL: data.dayPnL || 0,
-            totalPnL: data.totalPnL || 0
+            cashBalance: data.cashBalance || 0,
+            equity: data.equity || 0,
+            unrealizedPnL: data.unrealizedPnL || 0,
+            realizedPnL: data.realizedPnL || 0,
+            totalPnL: data.totalPnL || 0,
+            source: data.source || 'Unknown'
           };
           updateAccountSummary();
         }
@@ -2061,16 +2070,26 @@ router.get("/", (req: Request, res: Response) => {
         if (response.ok && data.success) {
           const selectedBroker = document.getElementById('broker').value;
           const statusEl = document.getElementById('brokerStatus');
+          const syncBtn = document.getElementById('syncOrdersBtn');
           
           if (data.brokers[selectedBroker]) {
             const broker = data.brokers[selectedBroker];
             if (broker.connected) {
               statusEl.textContent = '✅ Connected';
               statusEl.style.color = '#4caf50';
+              // Show sync button only for IBKR when connected
+              if (selectedBroker === 'ibkr') {
+                syncBtn.style.display = 'inline-block';
+              } else {
+                syncBtn.style.display = 'none';
+              }
             } else {
               statusEl.textContent = '❌ Disconnected';
               statusEl.style.color = '#f44336';
+              syncBtn.style.display = 'none';
             }
+          } else {
+            syncBtn.style.display = 'none';
           }
         }
       } catch (error) {
@@ -2082,7 +2101,8 @@ router.get("/", (req: Request, res: Response) => {
     // Fetch Pending Orders
     async function fetchPendingOrders() {
       try {
-        const response = await fetch('/api/dashboard/orders/pending');
+        const selectedBroker = document.getElementById('broker').value;
+        const response = await fetch('/api/dashboard/orders/pending?broker=' + selectedBroker);
         const data = await response.json();
         
         console.log('Orders API response:', data); // Debug logging
@@ -2609,8 +2629,54 @@ router.get("/", (req: Request, res: Response) => {
     fetchPendingOrders();
     checkBrokerStatus();
     
-    // Check broker status when broker selection changes
-    document.getElementById('broker').addEventListener('change', checkBrokerStatus);
+    // Sync orders button handler
+    document.getElementById('syncOrdersBtn').addEventListener('click', async () => {
+      const syncBtn = document.getElementById('syncOrdersBtn');
+      const selectedBroker = document.getElementById('broker').value;
+      
+      if (selectedBroker !== 'ibkr') {
+        showNotification('Sync Orders', 'Only available for IBKR', 'info');
+        return;
+      }
+      
+      syncBtn.textContent = '⏳ Syncing...';
+      syncBtn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/dashboard/orders/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ broker: selectedBroker })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          showNotification('Orders Synced', 'Refreshing order status from TWS...', 'success');
+          // Refresh positions and orders after a short delay
+          setTimeout(() => {
+            fetchPositions();
+            fetchPendingOrders();
+            fetchAccountSummary();
+          }, 1000);
+        } else {
+          showNotification('Sync Failed', result.error || 'Could not sync orders', 'error');
+        }
+      } catch (error) {
+        showNotification('Sync Error', 'Failed to sync orders', 'error');
+      } finally {
+        syncBtn.textContent = '🔄 Sync';
+        syncBtn.disabled = false;
+      }
+    });
+    
+    // Check broker status and refresh account data when broker selection changes
+    document.getElementById('broker').addEventListener('change', () => {
+      checkBrokerStatus();
+      fetchAccountSummary(); // Refresh balance for the selected broker
+      fetchPositions(); // Refresh positions for the selected broker
+      fetchPendingOrders(); // Refresh pending orders for the selected broker
+    });
     
     // Update broker status every 10 seconds
     setInterval(checkBrokerStatus, 10000);

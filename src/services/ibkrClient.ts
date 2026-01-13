@@ -28,6 +28,15 @@ class IbkrClient {
   private nextOrderId: number;
   private connectionPromise: Promise<void> | null;
   private orderIdMap: Map<number, string>; // IBKR orderId -> trackedOrderId
+  private processedExecutions: Set<string>; // Track processed execId to prevent duplicates
+  private processedFills: Set<string>; // Track processed order fills to prevent duplicate position updates
+  private accountData: {
+    cashBalance: number;
+    netLiquidation: number;
+    unrealizedPnL: number;
+    realizedPnL: number;
+    totalCashValue: number;
+  };
 
   constructor() {
     this.ib = null;
@@ -35,6 +44,15 @@ class IbkrClient {
     this.nextOrderId = 1;
     this.connectionPromise = null;
     this.orderIdMap = new Map();
+    this.processedExecutions = new Set();
+    this.processedFills = new Set();
+    this.accountData = {
+      cashBalance: 1000000,
+      netLiquidation: 1000000,
+      unrealizedPnL: 0,
+      realizedPnL: 0,
+      totalCashValue: 1000000,
+    };
   }
 
   /**
@@ -75,9 +93,11 @@ class IbkrClient {
     // 🔍 DEBUG: Log ALL events from IB Gateway
     this.ib.on(EventName.all, (eventName: string, ...args: any[]) => {
       // Only log order-related events to avoid spam
-      if (eventName.toLowerCase().includes('order') || 
-          eventName.toLowerCase().includes('exec') ||
-          eventName.toLowerCase().includes('position')) {
+      if (
+        eventName.toLowerCase().includes("order") ||
+        eventName.toLowerCase().includes("exec") ||
+        eventName.toLowerCase().includes("position")
+      ) {
         logger.info(`🔔 IB Gateway Event: ${eventName}`, { args });
       }
     });
@@ -100,12 +120,22 @@ class IbkrClient {
         // Always process status updates from openOrder events
         const trackedOrderId = this.orderIdMap.get(orderId);
         if (trackedOrderId && orderState.status) {
-          logger.info("Processing order status from openOrder event", { orderId, trackedOrderId, status: orderState.status });
+          logger.info("Processing order status from openOrder event", {
+            orderId,
+            trackedOrderId,
+            status: orderState.status,
+          });
           // Trigger the orderStatus handler with the data from openOrder
           const filled = order.filledQuantity || 0;
           const remaining = (order.totalQuantity || 0) - filled;
-          this.ib!.emit(EventName.orderStatus, orderId, orderState.status, filled, 
-            remaining, orderState.avgFillPrice || 0);
+          this.ib!.emit(
+            EventName.orderStatus,
+            orderId,
+            orderState.status,
+            filled,
+            remaining,
+            orderState.avgFillPrice || 0
+          );
         }
       }
     );
@@ -159,19 +189,23 @@ class IbkrClient {
         // 💾 Update order status in database
         (async () => {
           try {
-            const dbStatus = 
-              status === 'Filled' ? 'FILLED' :
-              status === 'Cancelled' ? 'CANCELLED' :
-              status === 'PartiallyFilled' ? 'PARTIALLY_FILLED' :
-              status === 'Inactive' ? 'REJECTED' :
-              'PENDING';
-            
+            const dbStatus =
+              status === "Filled"
+                ? "FILLED"
+                : status === "Cancelled"
+                ? "CANCELLED"
+                : status === "PartiallyFilled"
+                ? "PARTIALLY_FILLED"
+                : status === "Inactive"
+                ? "REJECTED"
+                : "PENDING";
+
             await orderRepository.update(trackedOrderId, {
               status: dbStatus,
               filledQuantity: filled,
               avgFillPrice: avgFillPrice,
             });
-            
+
             logger.info("✅ IBKR order status updated in database", {
               orderId: trackedOrderId,
               status: dbStatus,
@@ -185,7 +219,7 @@ class IbkrClient {
         })();
 
         if (status === "Filled" || status === "PartiallyFilled") {
-          logger.info("Order filled - updating position", {
+          logger.info("Order filled - status updated", {
             orderId,
             trackedOrderId,
             status,
@@ -194,75 +228,14 @@ class IbkrClient {
             remaining,
           });
 
-          // Get order details from tracker
-          const orderDetails = orderTracker.getOrderById(trackedOrderId);
-          if (orderDetails && filled > 0 && avgFillPrice > 0) {
-            // Update position via handleOrderFill
-            positionManager.handleOrderFill({
-              orderId: trackedOrderId,
-              symbol: orderDetails.symbol,
-              action: orderDetails.action,
-              quantity: filled,
-              fillPrice: avgFillPrice,
-              commission: 0, // Commission will be updated separately if available
-              timestamp: new Date(),
-            });
-
-            logger.info("Position updated via order fill", {
-              symbol: orderDetails.symbol,
-              action: orderDetails.action,
-              quantity: filled,
-              fillPrice: avgFillPrice,
-            });
-
-            // 💾 Save trade and position to database
-            (async () => {
-              try {
-                // Determine trade side and action based on position state
-                const action = orderDetails.action === 'BUY' ? 'BUY' : 'SELL';
-                const side = orderDetails.action === 'BUY' ? 'LONG' : 'SHORT';
-                
-                // Save trade record
-                await tradeRepository.create({
-                  orderId: trackedOrderId,
-                  symbol: orderDetails.symbol,
-                  action: 'ENTRY', // For now, mark as entry. TODO: detect exit based on position
-                  side: side as 'LONG' | 'SHORT',
-                  quantity: filled,
-                  price: avgFillPrice,
-                  commission: 0,
-                  broker: "ibkr",
-                  strategy: orderDetails.strategy || "manual",
-                  executedAt: new Date(),
-                });
-
-                // Update position in database
-                const position = positionManager.getPosition(orderDetails.symbol);
-                if (position) {
-                  await positionRepository.upsert({
-                    symbol: orderDetails.symbol,
-                    quantity: position.quantity,
-                    avgEntryPrice: position.avgEntryPrice,
-                    currentPrice: position.currentPrice,
-                    unrealizedPnL: position.unrealizedPnL,
-                    broker: "ibkr",
-                    strategy: orderDetails.strategy || "manual",
-                    isOpen: true,
-                  });
-                  
-                  logger.info("✅ IBKR trade and position saved to database", {
-                    symbol: orderDetails.symbol,
-                    orderId: trackedOrderId,
-                  });
-                }
-              } catch (dbError: any) {
-                logger.error("Failed to save trade/position to database", {
-                  error: dbError.message,
-                  orderId: trackedOrderId,
-                });
-              }
-            })();
-          }
+          // ⚠️ NOTE: Position updates are handled by execDetails event handler
+          // We should NOT process position fills from orderStatus events
+          // because execDetails is the authoritative source for executions.
+          // orderStatus events can fire multiple times with the same data,
+          // causing duplicate position updates.
+          logger.info(
+            "Skipping position update - will be handled by execDetails event"
+          );
         } else if (status === "Cancelled") {
           logger.info("Order cancelled", { orderId, trackedOrderId });
         }
@@ -280,7 +253,28 @@ class IbkrClient {
           shares: execution.shares,
           price: execution.price,
           time: execution.time,
+          execId: execution.execId,
         });
+
+        // 🛡️ DEDUPLICATION: Check if we already processed this execution
+        const executionKey = `${execution.execId}-${execution.orderId}-${execution.shares}`;
+        logger.info("🔍 Checking execution deduplication", {
+          executionKey,
+          alreadyProcessed: this.processedExecutions.has(executionKey),
+          totalProcessed: this.processedExecutions.size,
+        });
+
+        if (this.processedExecutions.has(executionKey)) {
+          logger.warn("⚠️ Duplicate execution detected - skipping", {
+            execId: execution.execId,
+            orderId: execution.orderId,
+          });
+          return;
+        }
+
+        // Mark this execution as processed
+        this.processedExecutions.add(executionKey);
+        logger.info("✅ Execution marked as processed", { executionKey });
 
         // Find tracked order by IBKR order ID
         const trackedOrderId = this.orderIdMap.get(execution.orderId);
@@ -315,13 +309,13 @@ class IbkrClient {
             // Determine trade side and action
             const action = execution.side === "BOT" ? "BUY" : "SELL";
             const side = execution.side === "BOT" ? "LONG" : "SHORT";
-            
+
             // Save trade record
             await tradeRepository.create({
               orderId: trackedOrderId,
               symbol: contract.symbol!,
-              action: 'ENTRY', // For now, mark as entry. TODO: detect exit based on position
-              side: side as 'LONG' | 'SHORT',
+              action: "ENTRY", // For now, mark as entry. TODO: detect exit based on position
+              side: side as "LONG" | "SHORT",
               quantity: execution.shares,
               price: execution.price,
               commission: execution.commission || 0,
@@ -343,7 +337,7 @@ class IbkrClient {
                 strategy: orderDetails?.strategy || "manual",
                 isOpen: true,
               });
-              
+
               logger.info("✅ IBKR trade and position saved to database", {
                 symbol: contract.symbol,
                 orderId: trackedOrderId,
@@ -370,6 +364,50 @@ class IbkrClient {
     this.ib.on(EventName.nextValidId, (orderId: number) => {
       logger.info("Next valid order ID received", { orderId });
       this.nextOrderId = orderId;
+    });
+
+    // Account value updates
+    this.ib.on(
+      EventName.accountSummary,
+      (
+        reqId: number,
+        account: string,
+        tag: string,
+        value: string,
+        currency: string
+      ) => {
+        logger.debug("Account summary update", {
+          account,
+          tag,
+          value,
+          currency,
+        });
+
+        // Parse and store relevant account values
+        const numValue = parseFloat(value) || 0;
+
+        switch (tag) {
+          case "NetLiquidation":
+            this.accountData.netLiquidation = numValue;
+            break;
+          case "TotalCashValue":
+            this.accountData.totalCashValue = numValue;
+            break;
+          case "UnrealizedPnL":
+            this.accountData.unrealizedPnL = numValue;
+            break;
+          case "RealizedPnL":
+            this.accountData.realizedPnL = numValue;
+            break;
+          case "CashBalance":
+            this.accountData.cashBalance = numValue;
+            break;
+        }
+      }
+    );
+
+    this.ib.on(EventName.accountSummaryEnd, (reqId: number) => {
+      logger.info("Account summary loaded", { accountData: this.accountData });
     });
   }
 
@@ -430,7 +468,9 @@ class IbkrClient {
 
       // Subscribe to automatic order status updates
       this.ib!.reqAutoOpenOrders(true);
-      logger.info("✅ Subscribed to automatic order updates via reqAutoOpenOrders(true)");
+      logger.info(
+        "✅ Subscribed to automatic order updates via reqAutoOpenOrders(true)"
+      );
 
       // Request account updates for positions
       if (config.ibkr.accountId) {
@@ -494,6 +534,7 @@ class IbkrClient {
       orderType: request.orderType as OrderType,
       tif: request.timeInForce,
       outsideRth: request.outsideRth || false, // Allow after-hours trading if requested
+      transmit: true, // ✅ Auto-transmit orders without manual confirmation
     };
 
     // Add limit price for limit orders
@@ -580,7 +621,9 @@ class IbkrClient {
           stopPrice: request.stopPrice,
           trailingAmount: request.trailingAmount,
         });
-        logger.info("✅ IBKR order saved to database", { orderId: trackedOrderId });
+        logger.info("✅ IBKR order saved to database", {
+          orderId: trackedOrderId,
+        });
       } catch (dbError: any) {
         logger.error("Failed to save IBKR order to database", {
           error: dbError.message,
@@ -601,14 +644,37 @@ class IbkrClient {
 
       // 🔍 DIAGNOSTIC: Manually request order status updates
       // reqAutoOpenOrders(true) should handle this, but let's force it
-      logger.info("🔍 Manually requesting order status for debugging", { orderId });
-      
-      // Request all open orders to trigger events
+      logger.info("🔍 Manually requesting order status for debugging", {
+        orderId,
+      });
+
+      // Request all open orders to trigger events - do it multiple times
+      const pollOrderStatus = () => {
+        try {
+          this.ib!.reqAllOpenOrders();
+          logger.info("✅ Called reqAllOpenOrders() - polling for status");
+        } catch (err: any) {
+          logger.error("❌ Failed to call reqAllOpenOrders()", {
+            error: err.message,
+          });
+        }
+      };
+
+      // Poll immediately and then at intervals
+      pollOrderStatus();
+      setTimeout(pollOrderStatus, 500);
+      setTimeout(pollOrderStatus, 1500);
+      setTimeout(pollOrderStatus, 3000);
+      setTimeout(pollOrderStatus, 5000);
+
+      // Also try reqOpenOrders (different API call)
       try {
-        this.ib.reqAllOpenOrders();
-        logger.info("✅ Called reqAllOpenOrders()");
+        this.ib!.reqOpenOrders();
+        logger.info("✅ Also called reqOpenOrders()");
       } catch (err: any) {
-        logger.error("❌ Failed to call reqAllOpenOrders()", { error: err.message });
+        logger.error("❌ Failed to call reqOpenOrders()", {
+          error: err.message,
+        });
       }
 
       const response: IbkrOrderResponse = {
@@ -674,16 +740,60 @@ class IbkrClient {
   }
 
   /**
-   * Get account information
-   * NOTE: Disabled to prevent Gateway freezing
-   * TODO: Implement proper event-based account tracking
+   * Get account information from TWS
    */
   async getAccountInfo(): Promise<any> {
-    return {
-      accountId: config.ibkr.accountId || "unknown",
-      connected: this.connected,
-      note: "Account details not yet implemented",
-    };
+    if (!this.connected || !this.ib) {
+      return {
+        accountId: config.ibkr.accountId || "unknown",
+        connected: false,
+        balance: 1000000, // Default fallback
+        cashBalance: 1000000,
+        unrealizedPnL: 0,
+        realizedPnL: 0,
+        netLiquidation: 1000000,
+      };
+    }
+
+    try {
+      // Request account summary (this will trigger accountSummary events)
+      this.ib.reqAccountSummary(
+        9001, // Request ID
+        "All", // Group (use "All" for all accounts)
+        "NetLiquidation,TotalCashValue,UnrealizedPnL,RealizedPnL,CashBalance"
+      );
+
+      // Wait a bit for the data to arrive (events are async)
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      logger.info("Returning account data from TWS", {
+        accountData: this.accountData,
+      });
+
+      return {
+        accountId: config.ibkr.accountId || "auto",
+        connected: this.connected,
+        balance: this.accountData.netLiquidation,
+        cashBalance: this.accountData.cashBalance,
+        unrealizedPnL: this.accountData.unrealizedPnL,
+        realizedPnL: this.accountData.realizedPnL,
+        netLiquidation: this.accountData.netLiquidation,
+        totalCashValue: this.accountData.totalCashValue,
+      };
+    } catch (error: any) {
+      logger.error("Error fetching account info from TWS", {
+        error: error.message,
+      });
+      return {
+        accountId: config.ibkr.accountId || "unknown",
+        connected: this.connected,
+        balance: 1000000,
+        cashBalance: 1000000,
+        unrealizedPnL: 0,
+        realizedPnL: 0,
+        netLiquidation: 1000000,
+      };
+    }
   }
 
   /**
@@ -729,6 +839,42 @@ class IbkrClient {
    */
   isConnected(): boolean {
     return this.connected;
+  }
+
+  /**
+   * Manually sync all open orders from TWS
+   * This forces TWS to send us updated order status
+   */
+  async syncOpenOrders(): Promise<void> {
+    if (!this.connected || !this.ib) {
+      logger.warn("Cannot sync orders: Not connected to TWS");
+      return;
+    }
+
+    try {
+      logger.info("🔄 Manually syncing open orders from TWS...");
+
+      // Request all open orders - this will trigger openOrder and orderStatus events
+      this.ib.reqAllOpenOrders();
+
+      // ALSO request completed orders (executions) from today
+      // This helps catch fills that TWS didn't notify us about
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      this.ib.reqExecutions(9999, {
+        time: today.toISOString().split("T")[0].replace(/-/g, ""), // Format: YYYYMMDD
+      });
+
+      // Also request positions to update P&L
+      this.ib.reqPositions();
+
+      logger.info(
+        "✅ Sync request sent to TWS (orders + executions + positions)"
+      );
+    } catch (error: any) {
+      logger.error("Failed to sync open orders", { error: error.message });
+    }
   }
 
   /**
