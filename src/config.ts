@@ -97,7 +97,7 @@ const config: Config = {
   ibkr: {
     host: process.env.IBKR_HOST || "localhost",
     port: parseInt(process.env.IBKR_PORT || "7497", 10),
-    clientId: parseInt(process.env.IBKR_CLIENT_ID || "1", 10),
+    clientId: parseInt(process.env.IBKR_CLIENT_ID || "0", 10),
     accountId: process.env.IBKR_ACCOUNT_ID || "",
   },
 
