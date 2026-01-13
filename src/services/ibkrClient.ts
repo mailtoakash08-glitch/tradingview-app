@@ -576,21 +576,8 @@ class IbkrClient {
         quantity: request.quantity,
       });
 
-      // 🔧 AGGRESSIVE POLLING: Check order status multiple times
-      const pollForStatus = () => {
-        if (this.ib) {
-          logger.info("🔍 Polling for order status...", { orderId, trackedOrderId });
-          this.ib.reqAllOpenOrders();
-          this.ib.reqOpenOrders();
-        }
-      };
-      
-      // Poll immediately, then at 500ms, 1s, 2s, 4s
-      setTimeout(pollForStatus, 100);
-      setTimeout(pollForStatus, 500);
-      setTimeout(pollForStatus, 1000);
-      setTimeout(pollForStatus, 2000);
-      setTimeout(pollForStatus, 4000);
+      // ✅ Rely on reqAutoOpenOrders(true) for automatic updates
+      // No manual polling needed - IB Gateway will push updates automatically
 
       const response: IbkrOrderResponse = {
         success: true,
