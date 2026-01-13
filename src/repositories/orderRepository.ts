@@ -32,8 +32,15 @@ export class OrderRepository {
    */
   async create(order: InternalOrder): Promise<void> {
     try {
-      await prisma.order.create({
-        data: {
+      // Use upsert to handle duplicate orderId gracefully
+      await prisma.order.upsert({
+        where: { orderId: order.orderId },
+        update: {
+          // Update if exists (though this shouldn't happen for new orders)
+          status: order.status || 'PENDING',
+          filledQuantity: order.filledQuantity || 0,
+        },
+        create: {
           // Don't set `id` manually - let Prisma auto-increment it
           orderId: order.orderId,
           symbol: order.symbol,
