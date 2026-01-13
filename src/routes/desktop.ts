@@ -1861,7 +1861,7 @@ router.get("/", (req: Request, res: Response) => {
     // Fetch Pending Orders
     async function fetchPendingOrders() {
       try {
-        const response = await fetch('/api/dashboard/orders');
+        const response = await fetch('/api/dashboard/orders/pending');
         const data = await response.json();
         
         console.log('Orders API response:', data); // Debug logging
