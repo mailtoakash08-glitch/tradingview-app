@@ -44,20 +44,52 @@ router.get("/", (req: Request, res: Response) => {
     /* Main Container */
     .trading-container {
       display: grid;
-      grid-template-columns: 250px 1fr 380px;
-      grid-template-rows: 1fr 280px;
+      grid-template-columns: 250px 1fr 420px;
+      grid-template-rows: minmax(400px, 1fr) 320px;
       height: 100vh;
       gap: 1px;
       background: #000;
     }
 
-    /* Watchlist Panel (Left Sidebar) */
+    /* Watchlist Panel - LEFT Column, spans 2 rows */
     .watchlist-panel {
       background: #1E222D;
       padding: 15px;
       overflow-y: auto;
       grid-row: 1 / 3;
       grid-column: 1 / 2;
+      border-radius: 0;
+    }
+
+    /* Chart Section - MIDDLE Column, spans 2 rows */
+    .chart-section {
+      grid-column: 2 / 3;
+      grid-row: 1 / 3;
+      background: #1E222D;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Combined Panel (Positions + Pending Orders) - Top Row, RIGHT Column */
+    .combined-panel {
+      grid-column: 3 / 4;
+      grid-row: 1 / 2;
+      background: #1E222D;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* Trading Panel - Bottom Row, RIGHT Column */
+    .trading-panel {
+      grid-column: 3 / 4;
+      grid-row: 2 / 3;
+      background: #1E222D;
+      padding: 20px;
+      overflow-y: auto;
       border-radius: 0;
     }
 
@@ -167,15 +199,7 @@ router.get("/", (req: Request, res: Response) => {
       padding: 20px;
     }
 
-    /* Chart Area (Top Middle) */
-    .chart-section {
-      background: #131722;
-      position: relative;
-      grid-row: 1 / 2;
-      grid-column: 2 / 3;
-      display: flex;
-      flex-direction: column;
-    }
+    /* Chart Area (Top Middle) - removed, now defined in main container */
     
     /* Chart Tabs */
     .chart-tabs {
@@ -217,6 +241,59 @@ router.get("/", (req: Request, res: Response) => {
       padding: 5px 10px;
       gap: 5px;
       flex-wrap: wrap;
+    }
+    
+    /* Combined Panel Tabs (Positions / Pending Orders) */
+    .combined-panel-tabs {
+      display: flex;
+      background: #1E222D;
+      border-bottom: 2px solid #2A2E39;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    
+    .combined-tab {
+      flex: 1;
+      padding: 14px 20px;
+      background: transparent;
+      border: none;
+      color: #787B86;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    
+    .combined-tab:hover {
+      color: #D1D4DC;
+      background: rgba(41, 98, 255, 0.05);
+    }
+    
+    .combined-tab.active {
+      color: #2962FF;
+      border-bottom-color: #2962FF;
+      background: rgba(41, 98, 255, 0.08);
+    }
+    
+    .combined-content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .combined-content-item {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    
+    .combined-content-item.active {
+      display: flex;
+      flex-direction: column;
     }
     
     .order-tab {
@@ -678,10 +755,17 @@ router.get("/", (req: Request, res: Response) => {
     }
 
     #pendingOrdersContainer {
-      max-height: 400px;
+      flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      margin-top: 10px;
+      min-height: 0;
+    }
+
+    #positionsTableContainer {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
     }
 
     /* Scrollbar styling for pending orders */
@@ -980,100 +1064,114 @@ router.get("/", (req: Request, res: Response) => {
       </div>
     </div>
 
-    <!-- Positions Section -->
-    <div class="positions-section">
-      <div class="positions-header">
-        <div class="positions-title">💼 Open Positions</div>
-        <div class="account-summary">
-          <div class="summary-item">
-            <span class="summary-label">Balance</span>
-            <span class="summary-value" id="balance">$0.00</span>
+    <!-- Combined Panel (Positions + Pending Orders) -->
+    <div class="combined-panel">
+      <!-- Tab Buttons -->
+      <div class="combined-panel-tabs">
+        <button class="combined-tab active" onclick="switchCombinedTab('positions')">
+          💼 Open Positions
+        </button>
+        <button class="combined-tab" onclick="switchCombinedTab('orders')">
+          ⏱️ Pending Orders
+        </button>
+      </div>
+      
+      <!-- Combined Content -->
+      <div class="combined-content">
+        <!-- Positions Tab Content -->
+        <div class="combined-content-item active" id="positions-content">
+          <div class="positions-header">
+            <div class="account-summary">
+              <div class="summary-item">
+                <span class="summary-label">Balance</span>
+                <span class="summary-value" id="balance">$0.00</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Unrealized P&L</span>
+                <span class="summary-value" id="unrealizedPnL">$0.00</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Realized P&L</span>
+                <span class="summary-value" id="realizedPnL">$0.00</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Total P&L</span>
+                <span class="summary-value" id="totalPnL">$0.00</span>
+              </div>
+              <button class="refresh-btn" id="refreshBtn">↻ Refresh</button>
+            </div>
           </div>
-          <div class="summary-item">
-            <span class="summary-label">Unrealized P&L</span>
-            <span class="summary-value" id="unrealizedPnL">$0.00</span>
+
+          <div id="positionsTableContainer" style="flex: 1; overflow-y: auto;">
+            <table id="positionsTable">
+              <thead>
+                <tr>
+                  <th>SYMBOL</th>
+                  <th>QUANTITY</th>
+                  <th>AVG PRICE</th>
+                  <th>CURRENT PRICE</th>
+                  <th>MARKET VALUE</th>
+                  <th>UNREALIZED P&L</th>
+                  <th>P&L %</th>
+                  <th>STATUS</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="positionsBody">
+                <tr>
+                  <td colspan="9" class="empty-state">No open positions</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="summary-item">
-            <span class="summary-label">Realized P&L</span>
-            <span class="summary-value" id="realizedPnL">$0.00</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">Total P&L</span>
-            <span class="summary-value" id="totalPnL">$0.00</span>
-          </div>
-          <button class="refresh-btn" id="refreshBtn">↻ Refresh</button>
         </div>
-      </div>
-
-      <div id="positionsTableContainer">
-        <table id="positionsTable">
-          <thead>
-            <tr>
-              <th>SYMBOL</th>
-              <th>QUANTITY</th>
-              <th>AVG PRICE</th>
-              <th>CURRENT PRICE</th>
-              <th>MARKET VALUE</th>
-              <th>UNREALIZED P&L</th>
-              <th>P&L %</th>
-              <th>STATUS</th>
-              <th>ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody id="positionsBody">
-            <tr>
-              <td colspan="9" class="empty-state">No open positions</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Pending Orders Section -->
-    <div class="pending-orders-section">
-      <div class="pending-orders-header">
-        <div class="pending-orders-title">⏱️ Pending Orders</div>
-        <button class="refresh-btn" id="refreshOrdersBtn" title="Refresh Orders">↻</button>
-      </div>
-      
-      <!-- Order Type Filter Tabs -->
-      <div class="order-filter-tabs">
-        <button class="order-tab active" data-filter="ALL" onclick="filterOrdersByType('ALL')">
-          📋 All
-        </button>
-        <button class="order-tab" data-filter="MKT" onclick="filterOrdersByType('MKT')">
-          🎯 Market
-        </button>
-        <button class="order-tab" data-filter="LMT" onclick="filterOrdersByType('LMT')">
-          📊 Limit
-        </button>
-        <button class="order-tab" data-filter="STP" onclick="filterOrdersByType('STP')">
-          🛑 Stop
-        </button>
-        <button class="order-tab" data-filter="TRAIL" onclick="filterOrdersByType('TRAIL')">
-          📉 Trailing
-        </button>
-      </div>
-      
-      <div id="pendingOrdersContainer">
-        <table id="pendingOrdersTable">
-          <thead>
-            <tr>
-              <th>SYMBOL</th>
-              <th>TYPE</th>
-              <th>TRIGGER PRICE</th>
-              <th>QUANTITY</th>
-              <th>SIDE</th>
-              <th>STATUS</th>
-              <th>ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody id="pendingOrdersBody">
-            <tr>
-              <td colspan="7" class="empty-state">No pending stop orders</td>
-            </tr>
-          </tbody>
-        </table>
+        
+        <!-- Pending Orders Tab Content -->
+        <div class="combined-content-item" id="orders-content">
+          <div class="pending-orders-header" style="margin-bottom: 0;">
+            <button class="refresh-btn" id="refreshOrdersBtn" title="Refresh Orders">↻</button>
+          </div>
+          
+          <!-- Order Type Filter Tabs -->
+          <div class="order-filter-tabs">
+            <button class="order-tab active" data-filter="ALL" onclick="filterOrdersByType('ALL')">
+              📋 All
+            </button>
+            <button class="order-tab" data-filter="MKT" onclick="filterOrdersByType('MKT')">
+              🎯 Market
+            </button>
+            <button class="order-tab" data-filter="LMT" onclick="filterOrdersByType('LMT')">
+              📊 Limit
+            </button>
+            <button class="order-tab" data-filter="STP" onclick="filterOrdersByType('STP')">
+              🛑 Stop
+            </button>
+            <button class="order-tab" data-filter="TRAIL" onclick="filterOrdersByType('TRAIL')">
+              📉 Trailing
+            </button>
+          </div>
+          
+          <div id="pendingOrdersContainer">
+            <table id="pendingOrdersTable">
+              <thead>
+                <tr>
+                  <th>SYMBOL</th>
+                  <th>TYPE</th>
+                  <th>TRIGGER PRICE</th>
+                  <th>QUANTITY</th>
+                  <th>SIDE</th>
+                  <th>STATUS</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="pendingOrdersBody">
+                <tr>
+                  <td colspan="7" class="empty-state">No pending stop orders</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1083,6 +1181,7 @@ router.get("/", (req: Request, res: Response) => {
     let currentSymbol = 'AAPL';
     let currentChartType = 'lightweight'; // 'lightweight' or 'tradingview'
     let currentOrderFilter = 'ALL'; // Filter for pending orders: 'ALL', 'MKT', 'LMT', 'STP', 'TRAIL'
+    let currentCombinedTab = 'positions'; // 'positions' or 'orders'
     let tvWidget = null; // TradingView widget instance
     let lwChart = null; // Lightweight Charts instance
     let lwCandleSeries = null; // Lightweight Charts candlestick series
@@ -1096,6 +1195,23 @@ router.get("/", (req: Request, res: Response) => {
       realizedPnL: 0,
       totalPnL: 0
     };
+
+    // Switch Combined Panel Tab (Positions / Pending Orders)
+    function switchCombinedTab(tab) {
+      currentCombinedTab = tab;
+      
+      // Update tab buttons
+      document.querySelectorAll('.combined-tab').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      // Update content panels
+      document.querySelectorAll('.combined-content-item').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(tab + '-content').classList.add('active');
+    }
     let currentSymbolData = {
       symbol: 'AAPL',
       lastPrice: 0
