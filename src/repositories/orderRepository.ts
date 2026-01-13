@@ -34,7 +34,7 @@ export class OrderRepository {
     try {
       await prisma.order.create({
         data: {
-          id: order.orderId,
+          // Don't set `id` manually - let Prisma auto-increment it
           orderId: order.orderId,
           symbol: order.symbol,
           strategy: order.strategy || 'manual',
