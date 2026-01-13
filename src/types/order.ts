@@ -13,6 +13,7 @@ export interface TradeSignal {
   action: TradingViewAction;
   quantity: number;
   broker?: "ibkr" | "lightspeed" | "demo"; // Broker selection (added demo)
+  orderType?: "MKT" | "LMT" | "STP" | "TRAIL"; // Explicit order type from UI
   takeProfitPrice?: number;
   stopLossPrice?: number;
   stopPrice?: number; // For STOP MARKET entry orders

@@ -24,10 +24,13 @@ export interface TradingViewAlert {
   action: TradingViewAction;
   qty?: number | null;
   broker?: 'ibkr' | 'lightspeed' | 'demo'; // Broker selection
+  orderType?: 'MKT' | 'LMT' | 'STP' | 'TRAIL'; // Explicit order type from UI
+  limitPrice?: number | null; // For LIMIT orders
   tp?: number | null;
   sl?: number | null;
   stopPrice?: number | null; // For STOP MARKET orders (entries)
   trailingStop?: number | null; // Trailing stop distance in $
+  trailingAmount?: number | null; // Alternative field name for trailing stop
   outsideRth?: boolean;
   timestamp?: string;
 }

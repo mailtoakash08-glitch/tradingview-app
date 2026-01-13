@@ -96,6 +96,11 @@ class OrderRouter {
   private determineOrderType(
     signal: TradeSignal
   ): "MKT" | "LMT" | "STP" | "TRAIL" {
+    // If order type is explicitly specified (from UI), use it
+    if (signal.orderType) {
+      return signal.orderType;
+    }
+
     // TP (take-profit) uses limit orders
     if (signal.action === "TP" && signal.takeProfitPrice) {
       return "LMT";
