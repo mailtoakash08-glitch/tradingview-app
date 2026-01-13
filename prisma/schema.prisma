@@ -8,6 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
@@ -25,123 +26,106 @@ model Order {
   limitPrice       Float?
   stopPrice        Float?
   trailingAmount   Float?
-  status           String    @default("PENDING") // PENDING, FILLED, CANCELLED, REJECTED
+  status           String    // PENDING, FILLED, CANCELLED, REJECTED
   filledQuantity   Int       @default(0)
   avgFillPrice     Float?
-  commission       Float?
   outsideRth       Boolean   @default(false)
   submittedAt      DateTime  @default(now())
   filledAt         DateTime?
   cancelledAt      DateTime?
   rejectedAt       DateTime?
   errorMessage     String?
-  
-  // Relations
-  trades           Trade[]
-  
-  @@index([symbol])
-  @@index([status])
-  @@index([broker])
-  @@index([submittedAt])
+
+  @@index([broker, status])
+  @@index([symbol, status])
+  @@map("Order")
 }
 
 // ============================================
 // POSITIONS TABLE
 // ============================================
 model Position {
-  id               Int       @id @default(autoincrement())
+  id               String    @id @default(cuid())
   symbol           String
-  broker           String
+  broker           String    // demo, ibkr, lightspeed
   strategy         String
-  quantity         Int       // Positive = LONG, Negative = SHORT
+  quantity         Int
   avgEntryPrice    Float
   currentPrice     Float
   unrealizedPnL    Float
   realizedPnL      Float     @default(0)
+  isOpen           Boolean   @default(true)
   openedAt         DateTime  @default(now())
   closedAt         DateTime?
-  isOpen           Boolean   @default(true)
-  
-  // Relations
-  trades           Trade[]
-  
-  @@index([symbol])
-  @@index([broker])
-  @@index([isOpen])
-  @@index([openedAt])
-  @@index([symbol, broker, isOpen]) // Allow searching for open positions easily
+
+  @@index([symbol, broker, isOpen])
+  @@map("Position")
 }
 
 // ============================================
-// TRADES TABLE (Filled Orders)
+// TRADES TABLE
 // ============================================
 model Trade {
-  id               Int       @id @default(autoincrement())
+  id               String    @id @default(cuid())
   orderId          String
   symbol           String
-  strategy         String
   broker           String
-  side             String    // LONG, SHORT
-  action           String    // ENTRY, EXIT
+  strategy         String
+  action           String    // BUY, SELL
   quantity         Int
   price            Float
-  commission       Float?
+  commission       Float     @default(0)
   pnl              Float?
-  pnlPercent       Float?
   executedAt       DateTime  @default(now())
-  
-  // Relations
-  order            Order?    @relation(fields: [orderId], references: [orderId])
-  position         Position? @relation(fields: [positionId], references: [id])
-  positionId       Int?
-  
-  @@index([symbol])
-  @@index([broker])
-  @@index([executedAt])
-  @@index([orderId])
+
+  @@index([symbol, executedAt])
+  @@index([broker, executedAt])
+  @@map("Trade")
 }
 
 // ============================================
 // ACCOUNT SNAPSHOTS TABLE
 // ============================================
 model AccountSnapshot {
-  id               Int       @id @default(autoincrement())
+  id               String    @id @default(cuid())
   broker           String
   balance          Float
   equity           Float
-  totalPnL         Float
-  dayPnL           Float
+  buyingPower      Float
+  unrealizedPnL    Float
+  realizedPnL      Float
   openPositions    Int
-  openPositionsValue Float
-  todayTrades      Int
-  winRate          Float
+  dayTrades        Int       @default(0)
   timestamp        DateTime  @default(now())
-  
-  @@index([broker])
-  @@index([timestamp])
+
+  @@index([broker, timestamp])
+  @@map("AccountSnapshot")
 }
 
 // ============================================
 // SETTINGS TABLE
 // ============================================
 model Setting {
-  id               Int       @id @default(autoincrement())
+  id               String    @id @default(cuid())
   key              String    @unique
   value            String
   description      String?
   updatedAt        DateTime  @updatedAt
+
+  @@map("Setting")
 }
 
 // ============================================
-// LOGS TABLE (Optional - for audit trail)
+// LOGS TABLE
 // ============================================
 model Log {
-  id               Int       @id @default(autoincrement())
+  id               String    @id @default(cuid())
   level            String    // info, warn, error
   message          String
-  data             String?   // JSON string
+  context          String?
+  metadata         String?   // JSON string
   timestamp        DateTime  @default(now())
-  
-  @@index([level])
-  @@index([timestamp])
+
+  @@index([level, timestamp])
+  @@map("Log")
 }

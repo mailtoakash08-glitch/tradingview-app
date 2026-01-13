@@ -34,15 +34,12 @@ export class TradeRepository {
           symbol: trade.symbol,
           strategy: trade.strategy,
           broker: trade.broker,
-          side: trade.side,
           action: trade.action,
           quantity: trade.quantity,
           price: trade.price,
           commission: trade.commission,
           pnl: trade.pnl,
-          pnlPercent: trade.pnlPercent,
           executedAt: trade.executedAt ? new Date(trade.executedAt) : new Date(),
-          positionId: trade.positionId,
         },
       });
     } catch (error) {
@@ -79,20 +76,11 @@ export class TradeRepository {
   }
 
   /**
-   * Get trades for a specific position
+   * Get trades for a specific position (NOT IMPLEMENTED - no positionId in schema)
    */
   async getByPosition(positionId: number): Promise<Trade[]> {
-    try {
-      const trades = await prisma.trade.findMany({
-        where: { positionId },
-        orderBy: { executedAt: 'asc' },
-      });
-
-      return trades.map(this.mapToTrade);
-    } catch (error) {
-      console.error('Error fetching trades for position from database:', error);
-      return [];
-    }
+    // TODO: Add positionId to Trade schema if needed
+    return [];
   }
 
   /**
