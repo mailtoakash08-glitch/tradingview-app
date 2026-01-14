@@ -1109,57 +1109,57 @@ router.get("/", (req: Request, res: Response) => {
       <div class="combined-content">
         <!-- Positions Tab Content -->
         <div class="combined-content-item active" id="positions-content">
-          <div class="positions-header">
-            <div class="account-summary">
-              <div class="summary-item">
-                <span class="summary-label">Balance</span>
-                <span class="summary-value" id="balance">$0.00</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Unrealized P&L</span>
-                <span class="summary-value" id="unrealizedPnL">$0.00</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Realized P&L</span>
-                <span class="summary-value" id="realizedPnL">$0.00</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Total P&L</span>
-                <span class="summary-value" id="totalPnL">$0.00</span>
-              </div>
-              <button class="refresh-btn" id="refreshBtn">↻ Refresh</button>
-            </div>
+      <div class="positions-header">
+        <div class="account-summary">
+          <div class="summary-item">
+            <span class="summary-label">Balance</span>
+            <span class="summary-value" id="balance">$0.00</span>
           </div>
+          <div class="summary-item">
+            <span class="summary-label">Unrealized P&L</span>
+            <span class="summary-value" id="unrealizedPnL">$0.00</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Realized P&L</span>
+            <span class="summary-value" id="realizedPnL">$0.00</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Total P&L</span>
+            <span class="summary-value" id="totalPnL">$0.00</span>
+          </div>
+          <button class="refresh-btn" id="refreshBtn">↻ Refresh</button>
+        </div>
+      </div>
 
           <div id="positionsTableContainer" style="flex: 1; overflow-y: auto;">
-            <table id="positionsTable">
-              <thead>
-                <tr>
-                  <th>SYMBOL</th>
-                  <th>QUANTITY</th>
-                  <th>AVG PRICE</th>
-                  <th>CURRENT PRICE</th>
-                  <th>MARKET VALUE</th>
-                  <th>UNREALIZED P&L</th>
-                  <th>P&L %</th>
-                  <th>STATUS</th>
-                  <th>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody id="positionsBody">
-                <tr>
-                  <td colspan="9" class="empty-state">No open positions</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        
+        <table id="positionsTable">
+          <thead>
+            <tr>
+              <th>SYMBOL</th>
+              <th>QUANTITY</th>
+              <th>AVG PRICE</th>
+              <th>CURRENT PRICE</th>
+              <th>MARKET VALUE</th>
+              <th>UNREALIZED P&L</th>
+              <th>P&L %</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="positionsBody">
+            <tr>
+              <td colspan="9" class="empty-state">No open positions</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
         <!-- Pending Orders Tab Content -->
         <div class="combined-content-item" id="orders-content">
           <div class="pending-orders-header" style="margin-bottom: 0;">
-            <button class="refresh-btn" id="refreshOrdersBtn" title="Refresh Orders">↻</button>
-          </div>
+        <button class="refresh-btn" id="refreshOrdersBtn" title="Refresh Orders">↻</button>
+      </div>
           
           <!-- Order Type Filter Tabs -->
           <div class="order-filter-tabs">
@@ -1179,26 +1179,26 @@ router.get("/", (req: Request, res: Response) => {
               📉 Trailing
             </button>
           </div>
-          
-          <div id="pendingOrdersContainer">
-            <table id="pendingOrdersTable">
-              <thead>
-                <tr>
-                  <th>SYMBOL</th>
-                  <th>TYPE</th>
-                  <th>TRIGGER PRICE</th>
-                  <th>QUANTITY</th>
-                  <th>SIDE</th>
-                  <th>STATUS</th>
-                  <th>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody id="pendingOrdersBody">
-                <tr>
-                  <td colspan="7" class="empty-state">No pending stop orders</td>
-                </tr>
-              </tbody>
-            </table>
+      
+      <div id="pendingOrdersContainer">
+        <table id="pendingOrdersTable">
+          <thead>
+            <tr>
+              <th>SYMBOL</th>
+              <th>TYPE</th>
+              <th>TRIGGER PRICE</th>
+              <th>QUANTITY</th>
+              <th>SIDE</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="pendingOrdersBody">
+            <tr>
+              <td colspan="7" class="empty-state">No pending stop orders</td>
+            </tr>
+          </tbody>
+        </table>
           </div>
         </div>
       </div>
@@ -1216,6 +1216,10 @@ router.get("/", (req: Request, res: Response) => {
     let lwCandleSeries = null; // Lightweight Charts candlestick series
     let orderLines = {}; // Track drawn order lines {orderId: priceLine}
     let positionLines = {}; // Track position entry lines {symbol: priceLine}
+    let tpLine = null; // Take Profit line
+    let slLine = null; // Stop Loss line
+    let isDraggingLine = false; // Track if user is dragging a line
+    let draggedLine = null; // Which line is being dragged ('tp' or 'sl')
     let positions = [];
     let pendingOrders = []; // Track pending stop orders
     let accountData = {
@@ -1642,6 +1646,7 @@ router.get("/", (req: Request, res: Response) => {
       // Redraw order/position lines after chart is ready
       setTimeout(() => {
         redrawLightweightLines();
+        setupDraggableLines(); // 🖱️ Enable draggable TP/SL lines
       }, 500);
 
       console.log('Lightweight Chart initialized successfully');
@@ -1865,6 +1870,184 @@ router.get("/", (req: Request, res: Response) => {
           console.log('✅ Drew order line at $' + price.toFixed(2));
         }
       }
+    }
+    
+    // 🎯 Create/Update Take Profit Line
+    function updateTPLine(price) {
+      if (!lwChart || !lwCandleSeries || !price || price <= 0) {
+        return;
+      }
+      
+      // Remove old TP line
+      if (tpLine) {
+        try {
+          lwCandleSeries.removePriceLine(tpLine);
+        } catch (e) {
+          console.warn('Error removing TP line:', e);
+        }
+      }
+      
+      // Create new TP line (GREEN)
+      tpLine = lwCandleSeries.createPriceLine({
+        price: price,
+        color: '#26A69A', // Green
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Solid,
+        axisLabelVisible: true,
+        title: '🎯 TP $' + price.toFixed(2),
+      });
+      
+      console.log('✅ Drew Take Profit line at $' + price.toFixed(2));
+    }
+    
+    // 🛑 Create/Update Stop Loss Line
+    function updateSLLine(price) {
+      if (!lwChart || !lwCandleSeries || !price || price <= 0) {
+        return;
+      }
+      
+      // Remove old SL line
+      if (slLine) {
+        try {
+          lwCandleSeries.removePriceLine(slLine);
+        } catch (e) {
+          console.warn('Error removing SL line:', e);
+        }
+      }
+      
+      // Create new SL line (RED)
+      slLine = lwCandleSeries.createPriceLine({
+        price: price,
+        color: '#EF5350', // Red
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Solid,
+        axisLabelVisible: true,
+        title: '🛑 SL $' + price.toFixed(2),
+      });
+      
+      console.log('✅ Drew Stop Loss line at $' + price.toFixed(2));
+    }
+    
+    // 🖱️ Setup draggable TP/SL lines
+    function setupDraggableLines() {
+      if (!lwChart) return;
+      
+      const chartDiv = document.getElementById('lightweight_chart');
+      if (!chartDiv) return;
+      
+      let isMouseDown = false;
+      let startY = 0;
+      let startPrice = 0;
+      
+      // Mouse down - check if near TP or SL line
+      chartDiv.addEventListener('mousedown', function(e) {
+        if (!lwCandleSeries || currentChartType !== 'lightweight') return;
+        
+        const rect = chartDiv.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        
+        // Convert Y coordinate to price
+        const price = lwCandleSeries.coordinateToPrice(y);
+        if (!price) return;
+        
+        const tpPrice = parseFloat(document.getElementById('takeProfit').value);
+        const slPrice = parseFloat(document.getElementById('stopLoss').value);
+        
+        const threshold = Math.abs(currentSymbolData.lastPrice) * 0.02; // 2% threshold
+        
+        // Check if near TP line
+        if (tpPrice && Math.abs(price - tpPrice) < threshold) {
+          isMouseDown = true;
+          isDraggingLine = true;
+          draggedLine = 'tp';
+          startY = y;
+          startPrice = tpPrice;
+          chartDiv.style.cursor = 'ns-resize';
+          e.preventDefault();
+          return;
+        }
+        
+        // Check if near SL line
+        if (slPrice && Math.abs(price - slPrice) < threshold) {
+          isMouseDown = true;
+          isDraggingLine = true;
+          draggedLine = 'sl';
+          startY = y;
+          startPrice = slPrice;
+          chartDiv.style.cursor = 'ns-resize';
+          e.preventDefault();
+          return;
+        }
+      });
+      
+      // Mouse move - drag the line
+      chartDiv.addEventListener('mousemove', function(e) {
+        if (!isMouseDown || !isDraggingLine || !lwCandleSeries) return;
+        
+        const rect = chartDiv.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        
+        // Convert Y coordinate to price
+        const newPrice = lwCandleSeries.coordinateToPrice(y);
+        if (!newPrice || newPrice <= 0) return;
+        
+        // Update the line and input field
+        if (draggedLine === 'tp') {
+          document.getElementById('takeProfit').value = newPrice.toFixed(2);
+          updateTPLine(newPrice);
+        } else if (draggedLine === 'sl') {
+          document.getElementById('stopLoss').value = newPrice.toFixed(2);
+          updateSLLine(newPrice);
+        }
+        
+        e.preventDefault();
+      });
+      
+      // Mouse up - stop dragging
+      chartDiv.addEventListener('mouseup', function(e) {
+        if (isMouseDown && isDraggingLine) {
+          isMouseDown = false;
+          isDraggingLine = false;
+          draggedLine = null;
+          chartDiv.style.cursor = 'default';
+          console.log('✅ Line drag completed');
+        }
+      });
+      
+      // Mouse leave - stop dragging if mouse leaves chart
+      chartDiv.addEventListener('mouseleave', function(e) {
+        if (isMouseDown && isDraggingLine) {
+          isMouseDown = false;
+          isDraggingLine = false;
+          draggedLine = null;
+          chartDiv.style.cursor = 'default';
+        }
+      });
+      
+      // Show cursor change when hovering near lines
+      chartDiv.addEventListener('mousemove', function(e) {
+        if (isDraggingLine || !lwCandleSeries || currentChartType !== 'lightweight') return;
+        
+        const rect = chartDiv.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const price = lwCandleSeries.coordinateToPrice(y);
+        if (!price) return;
+        
+        const tpPrice = parseFloat(document.getElementById('takeProfit').value);
+        const slPrice = parseFloat(document.getElementById('stopLoss').value);
+        const threshold = Math.abs(currentSymbolData.lastPrice) * 0.02;
+        
+        const nearTP = tpPrice && Math.abs(price - tpPrice) < threshold;
+        const nearSL = slPrice && Math.abs(price - slPrice) < threshold;
+        
+        if (nearTP || nearSL) {
+          chartDiv.style.cursor = 'ns-resize';
+        } else {
+          chartDiv.style.cursor = 'default';
+        }
+      });
+      
+      console.log('✅ Draggable TP/SL lines enabled');
     }
     
     // Fetch current price from API
@@ -2784,6 +2967,41 @@ router.get("/", (req: Request, res: Response) => {
       fetchAccountSummary(); // Refresh balance for the selected broker
       fetchPositions(); // Refresh positions for the selected broker
       fetchPendingOrders(); // Refresh pending orders for the selected broker
+    });
+    
+    // 🎯 TP/SL Input Field Listeners - Update lines when user types
+    document.getElementById('takeProfit').addEventListener('input', function() {
+      const tpPrice = parseFloat(this.value);
+      if (tpPrice && tpPrice > 0 && currentChartType === 'lightweight') {
+        updateTPLine(tpPrice);
+      } else if (!tpPrice && tpLine) {
+        // Remove TP line if input is cleared
+        try {
+          if (lwCandleSeries && tpLine) {
+            lwCandleSeries.removePriceLine(tpLine);
+            tpLine = null;
+          }
+        } catch (e) {
+          console.warn('Error removing TP line:', e);
+        }
+      }
+    });
+    
+    document.getElementById('stopLoss').addEventListener('input', function() {
+      const slPrice = parseFloat(this.value);
+      if (slPrice && slPrice > 0 && currentChartType === 'lightweight') {
+        updateSLLine(slPrice);
+      } else if (!slPrice && slLine) {
+        // Remove SL line if input is cleared
+        try {
+          if (lwCandleSeries && slLine) {
+            lwCandleSeries.removePriceLine(slLine);
+            slLine = null;
+          }
+        } catch (e) {
+          console.warn('Error removing SL line:', e);
+        }
+      }
     });
     
     // Update broker status every 10 seconds
