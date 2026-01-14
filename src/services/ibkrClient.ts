@@ -630,10 +630,14 @@ class IbkrClient {
     }
 
     // 🎯 Add BOTH stop and limit prices for Stop-Limit orders
-    if (request.orderType === "STP_LMT" && request.stopPrice && request.limitPrice) {
+    if (
+      request.orderType === "STP_LMT" &&
+      request.stopPrice &&
+      request.limitPrice
+    ) {
       order.orderType = "STP LMT" as OrderType; // IBKR uses "STP LMT" not "STP_LMT"
-      order.auxPrice = request.stopPrice;      // Stop (trigger) price
-      order.lmtPrice = request.limitPrice;     // Limit (execution) price
+      order.auxPrice = request.stopPrice; // Stop (trigger) price
+      order.lmtPrice = request.limitPrice; // Limit (execution) price
       logger.info("Creating Stop-Limit order", {
         symbol: request.symbol,
         stopPrice: request.stopPrice,
@@ -688,7 +692,12 @@ class IbkrClient {
       const trackedOrderId = orderTracker.trackOrder({
         symbol: request.symbol,
         action: request.action as "BUY" | "SELL",
-        orderType: request.orderType as "MKT" | "LMT" | "STP" | "STP_LMT" | "TRAIL",
+        orderType: request.orderType as
+          | "MKT"
+          | "LMT"
+          | "STP"
+          | "STP_LMT"
+          | "TRAIL",
         quantity: request.quantity,
         limitPrice: request.limitPrice,
         stopPrice: request.stopPrice,
@@ -706,7 +715,12 @@ class IbkrClient {
           externalOrderId: orderId.toString(), // ✅ Store TWS order ID for cancellation
           symbol: request.symbol,
           action: request.action as "BUY" | "SELL",
-          orderType: request.orderType as "MKT" | "LMT" | "STP" | "STP_LMT" | "TRAIL",
+          orderType: request.orderType as
+            | "MKT"
+            | "LMT"
+            | "STP"
+            | "STP_LMT"
+            | "TRAIL",
           quantity: request.quantity,
           broker: "ibkr",
           strategy: request.metadata?.strategy || "manual",

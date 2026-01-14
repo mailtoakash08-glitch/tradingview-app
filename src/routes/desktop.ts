@@ -1025,6 +1025,22 @@ router.get("/", (req: Request, res: Response) => {
         <div class="form-group" id="limitPriceGroup" style="display:none;">
           <label>Limit Price</label>
           <input type="number" id="limitPrice" step="0.01" placeholder="150.00" />
+          
+          <!-- 🎯 Auto-Margin for Stop-Limit Orders -->
+          <div id="autoMarginContainer" style="display:none; margin-top: 8px; padding: 8px; background: rgba(41, 98, 255, 0.05); border-radius: 4px;">
+            <div class="checkbox-group" style="margin: 0 0 8px 0;">
+              <input type="checkbox" id="autoMargin" checked />
+              <label for="autoMargin" style="font-size: 12px;">🎯 Auto-calculate with margin</label>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="font-size: 11px; color: #787B86; margin: 0;">Margin:</label>
+              <input type="number" id="marginPercent" value="0.3" step="0.1" min="0.1" max="5" style="width: 60px; padding: 4px 8px; font-size: 12px;" />
+              <span style="font-size: 11px; color: #787B86;">%</span>
+              <small style="color: #787B86; font-size: 10px; flex: 1;">
+                (Adds buffer to stop price)
+              </small>
+            </div>
+          </div>
         </div>
 
         <div class="form-group" id="stopPriceGroup" style="display:none;">
@@ -2140,11 +2156,13 @@ router.get("/", (req: Request, res: Response) => {
       const limitPriceGroup = document.getElementById('limitPriceGroup');
       const stopPriceGroup = document.getElementById('stopPriceGroup');
       const trailingAmountGroup = document.getElementById('trailingAmountGroup');
+      const autoMarginContainer = document.getElementById('autoMarginContainer');
 
       // Hide all conditional fields
       limitPriceGroup.style.display = 'none';
       stopPriceGroup.style.display = 'none';
       trailingAmountGroup.style.display = 'none';
+      if (autoMarginContainer) autoMarginContainer.style.display = 'none';
 
       // Show relevant fields based on order type
       if (orderType === 'LMT') {
@@ -2152,11 +2170,75 @@ router.get("/", (req: Request, res: Response) => {
       } else if (orderType === 'STP') {
         stopPriceGroup.style.display = 'block';
       } else if (orderType === 'STP_LMT') {
-        // 🎯 Stop-Limit: Show BOTH stop and limit price fields
+        // 🎯 Stop-Limit: Show BOTH stop and limit price fields + auto-margin
         stopPriceGroup.style.display = 'block';
         limitPriceGroup.style.display = 'block';
+        if (autoMarginContainer) autoMarginContainer.style.display = 'block';
       } else if (orderType === 'TRAIL') {
         trailingAmountGroup.style.display = 'block';
+      }
+    });
+
+    // 🎯 Auto-calculate limit price with margin for Stop-Limit orders
+    function autoCalculateLimitPrice(action = null) {
+      const orderType = document.getElementById('orderType').value;
+      const autoMargin = document.getElementById('autoMargin').checked;
+      
+      // Only auto-calculate for Stop-Limit orders with auto-margin enabled
+      if (orderType !== 'STP_LMT' || !autoMargin) return;
+      
+      const stopPriceInput = document.getElementById('stopPrice');
+      const limitPriceInput = document.getElementById('limitPrice');
+      const marginPercentInput = document.getElementById('marginPercent');
+      
+      const stopPrice = parseFloat(stopPriceInput.value);
+      const marginPercent = parseFloat(marginPercentInput.value) || 0.3;
+      
+      if (!stopPrice || stopPrice <= 0) return;
+      
+      // Calculate margin amount
+      const marginAmount = stopPrice * (marginPercent / 100);
+      let limitPrice;
+      
+      // Determine direction
+      if (action === 'BUY') {
+        // BUY: limit = stop + margin (willing to pay slightly more)
+        limitPrice = stopPrice + marginAmount;
+      } else if (action === 'SELL') {
+        // SELL: limit = stop - margin (willing to sell slightly lower)
+        limitPrice = stopPrice - marginAmount;
+      } else {
+        // No action specified, assume BUY (most common for stop-limit entries)
+        limitPrice = stopPrice + marginAmount;
+      }
+      
+      limitPriceInput.value = limitPrice.toFixed(2);
+      
+      const direction = action || 'BUY (default)';
+      const sign = action === 'SELL' ? '-' : '+';
+      console.log('🎯 Auto-calculated limit price for ' + direction + ': $' + limitPrice.toFixed(2) + ' (stop: $' + stopPrice.toFixed(2) + ' ' + sign + ' ' + marginPercent + '%)');    }
+    
+    // Attach auto-calculation listeners
+    document.getElementById('stopPrice').addEventListener('input', () => autoCalculateLimitPrice());
+    document.getElementById('marginPercent').addEventListener('input', () => autoCalculateLimitPrice());
+    document.getElementById('autoMargin').addEventListener('change', function() {
+      if (this.checked) {
+        autoCalculateLimitPrice();
+      }
+    });
+    
+    // Update limit price when hovering over BUY/SELL buttons (for Stop-Limit orders)
+    document.getElementById('buyBtn').addEventListener('mouseenter', function() {
+      const orderType = document.getElementById('orderType').value;
+      if (orderType === 'STP_LMT') {
+        autoCalculateLimitPrice('BUY');
+      }
+    });
+    
+    document.getElementById('sellBtn').addEventListener('mouseenter', function() {
+      const orderType = document.getElementById('orderType').value;
+      if (orderType === 'STP_LMT') {
+        autoCalculateLimitPrice('SELL');
       }
     });
 
