@@ -1192,6 +1192,9 @@ router.get("/", (req: Request, res: Response) => {
             <button class="order-tab" data-filter="STP" onclick="filterOrdersByType('STP')">
               🛑 Stop
             </button>
+            <button class="order-tab" data-filter="STP_LMT" onclick="filterOrdersByType('STP_LMT')">
+              🎯📊 Stop-Limit
+            </button>
             <button class="order-tab" data-filter="TRAIL" onclick="filterOrdersByType('TRAIL')">
               📉 Trailing
             </button>
