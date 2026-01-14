@@ -37,6 +37,20 @@ class IbkrClient {
     realizedPnL: number;
     totalCashValue: number;
   };
+  private marketData: Map<
+    string,
+    {
+      symbol: string;
+      bid: number;
+      ask: number;
+      last: number;
+      bidSize: number;
+      askSize: number;
+      lastSize: number;
+      lastUpdate: Date;
+    }
+  >; // Store real-time market data
+  private tickerIdMap: Map<number, string>; // reqId -> symbol mapping for market data
 
   constructor() {
     this.ib = null;
@@ -53,6 +67,8 @@ class IbkrClient {
       realizedPnL: 0,
       totalCashValue: 1000000,
     };
+    this.marketData = new Map();
+    this.tickerIdMap = new Map();
   }
 
   /**
@@ -409,6 +425,72 @@ class IbkrClient {
     this.ib.on(EventName.accountSummaryEnd, (reqId: number) => {
       logger.info("Account summary loaded", { accountData: this.accountData });
     });
+
+    // 📊 Market Data Events
+    this.ib.on(
+      EventName.tickPrice as any,
+      (reqId: number, tickType: number, price: number) => {
+        const symbol = this.tickerIdMap.get(reqId);
+        if (!symbol) return;
+
+        if (!this.marketData.has(symbol)) {
+          this.marketData.set(symbol, {
+            symbol,
+            bid: 0,
+            ask: 0,
+            last: 0,
+            bidSize: 0,
+            askSize: 0,
+            lastSize: 0,
+            lastUpdate: new Date(),
+          });
+        }
+
+        const data = this.marketData.get(symbol)!;
+
+        // TickType: 1=bid, 2=ask, 4=last
+        if (tickType === 1) {
+          data.bid = price;
+        } else if (tickType === 2) {
+          data.ask = price;
+        } else if (tickType === 4) {
+          data.last = price;
+        }
+
+        data.lastUpdate = new Date();
+
+        logger.debug("Market data price update", {
+          symbol,
+          tickType,
+          price,
+          data,
+        });
+      }
+    );
+
+    this.ib.on(
+      EventName.tickSize as any,
+      (reqId: number, tickType: number, size: number) => {
+        const symbol = this.tickerIdMap.get(reqId);
+        if (!symbol) return;
+
+        const data = this.marketData.get(symbol);
+        if (!data) return;
+
+        // TickType: 0=bidSize, 3=askSize, 5=lastSize
+        if (tickType === 0) {
+          data.bidSize = size;
+        } else if (tickType === 3) {
+          data.askSize = size;
+        } else if (tickType === 5) {
+          data.lastSize = size;
+        }
+
+        data.lastUpdate = new Date();
+
+        logger.debug("Market data size update", { symbol, tickType, size });
+      }
+    );
   }
 
   /**
@@ -882,6 +964,98 @@ class IbkrClient {
    */
   getNextOrderId(): number {
     return this.nextOrderId;
+  }
+
+  /**
+   * Subscribe to real-time market data for a symbol
+   */
+  async subscribeMarketData(symbol: string): Promise<number> {
+    if (!this.connected || !this.ib) {
+      throw new Error("Cannot subscribe to market data: Not connected to TWS");
+    }
+
+    try {
+      const contract = this.createContract(symbol);
+      const reqId = Date.now(); // Use timestamp as unique reqId
+
+      // Map reqId to symbol
+      this.tickerIdMap.set(reqId, symbol);
+
+      // Request market data - this will trigger tickPrice and tickSize events
+      this.ib.reqMktData(
+        reqId,
+        contract,
+        "", // Generic tick list (empty = all standard ticks)
+        false, // snapshot = false for streaming data
+        false // regulatorySnapshot
+      );
+
+      logger.info("📊 Subscribed to market data", { symbol, reqId });
+      return reqId;
+    } catch (error: any) {
+      logger.error("Failed to subscribe to market data", {
+        symbol,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Unsubscribe from market data for a symbol
+   */
+  async unsubscribeMarketData(reqId: number): Promise<void> {
+    if (!this.connected || !this.ib) {
+      return;
+    }
+
+    try {
+      const symbol = this.tickerIdMap.get(reqId);
+      this.ib.cancelMktData(reqId);
+      this.tickerIdMap.delete(reqId);
+
+      if (symbol) {
+        this.marketData.delete(symbol);
+        logger.info("📊 Unsubscribed from market data", { symbol, reqId });
+      }
+    } catch (error: any) {
+      logger.error("Failed to unsubscribe from market data", {
+        reqId,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get current market data for a symbol
+   */
+  getMarketData(symbol: string): {
+    symbol: string;
+    bid: number;
+    ask: number;
+    last: number;
+    bidSize: number;
+    askSize: number;
+    lastSize: number;
+    lastUpdate: Date;
+  } | null {
+    return this.marketData.get(symbol) || null;
+  }
+
+  /**
+   * Get market data for all subscribed symbols
+   */
+  getAllMarketData(): Array<{
+    symbol: string;
+    bid: number;
+    ask: number;
+    last: number;
+    bidSize: number;
+    askSize: number;
+    lastSize: number;
+    lastUpdate: Date;
+  }> {
+    return Array.from(this.marketData.values());
   }
 }
 

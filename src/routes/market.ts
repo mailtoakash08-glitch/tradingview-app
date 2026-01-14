@@ -5,6 +5,7 @@
 
 import express from 'express';
 import axios from 'axios';
+import { ibkrClient } from '../services/ibkrClient';
 
 const router = express.Router();
 
@@ -141,6 +142,105 @@ router.get('/quote/:symbol', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch quote',
+    });
+  }
+});
+
+/**
+ * GET /api/market/tws-quote/:symbol
+ * Get real-time bid/ask from TWS/IB Gateway
+ */
+router.get('/tws-quote/:symbol', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    
+    if (!ibkrClient.isConnected()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Not connected to TWS/IB Gateway',
+      });
+    }
+
+    // Check if we already have data for this symbol
+    let marketData = ibkrClient.getMarketData(symbol);
+    
+    // If no data, subscribe and wait a moment for initial tick
+    if (!marketData) {
+      await ibkrClient.subscribeMarketData(symbol);
+      
+      // Wait up to 2 seconds for initial data
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      marketData = ibkrClient.getMarketData(symbol);
+    }
+
+    if (!marketData || (marketData.bid === 0 && marketData.ask === 0)) {
+      return res.status(404).json({
+        success: false,
+        error: 'No market data available for symbol (check market hours and subscription)',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        symbol: marketData.symbol,
+        bid: marketData.bid,
+        ask: marketData.ask,
+        last: marketData.last,
+        bidSize: marketData.bidSize,
+        askSize: marketData.askSize,
+        lastSize: marketData.lastSize,
+        spread: marketData.ask - marketData.bid,
+        midpoint: (marketData.bid + marketData.ask) / 2,
+        lastUpdate: marketData.lastUpdate,
+        source: 'TWS/IB Gateway',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching TWS quote:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch TWS quote',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/market/tws-quotes
+ * Get all subscribed market data
+ */
+router.get('/tws-quotes', async (req, res) => {
+  try {
+    if (!ibkrClient.isConnected()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Not connected to TWS/IB Gateway',
+      });
+    }
+
+    const allData = ibkrClient.getAllMarketData();
+    
+    res.json({
+      success: true,
+      data: allData.map(md => ({
+        symbol: md.symbol,
+        bid: md.bid,
+        ask: md.ask,
+        last: md.last,
+        bidSize: md.bidSize,
+        askSize: md.askSize,
+        spread: md.ask - md.bid,
+        midpoint: (md.bid + md.ask) / 2,
+        lastUpdate: md.lastUpdate,
+      })),
+      source: 'TWS/IB Gateway',
+    });
+  } catch (error: any) {
+    console.error('Error fetching TWS quotes:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch TWS quotes',
     });
   }
 });

@@ -191,6 +191,32 @@ router.get("/", (req: Request, res: Response) => {
       background: rgba(239, 83, 80, 0.1);
     }
 
+    .watchlist-detail {
+      font-size: 10px;
+      color: #787B86;
+      margin-top: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .watchlist-bid-ask {
+      display: flex;
+      gap: 8px;
+    }
+
+    .bid-price {
+      color: #26A69A;
+    }
+
+    .ask-price {
+      color: #EF5350;
+    }
+
+    .price-value {
+      color: #fff;
+      font-weight: 500;
+    }
+
     .watchlist-empty {
       text-align: center;
       color: #787B86;
@@ -1335,6 +1361,13 @@ router.get("/", (req: Request, res: Response) => {
         html += '<span class="price-value" id="price-' + symbol + '">--</span>';
         html += '<span class="watchlist-change" id="change-' + symbol + '">--</span>';
         html += '</div>';
+        html += '<div class="watchlist-detail">';
+        html += '<span class="watchlist-bid-ask">';
+        html += '<span title="Day Low">L: <span class="bid-price" id="low-' + symbol + '">--</span></span>';
+        html += '<span title="Day High">H: <span class="ask-price" id="high-' + symbol + '">--</span></span>';
+        html += '</span>';
+        html += '<span id="volume-' + symbol + '" title="Volume">--</span>';
+        html += '</div>';
         html += '</div>';
       }
       container.innerHTML = html;
@@ -1363,14 +1396,73 @@ router.get("/", (req: Request, res: Response) => {
     
     // Update watchlist with real prices
     async function updateWatchlistPrices() {
+      const selectedBroker = document.getElementById('broker').value;
+      const useTWS = selectedBroker === 'ibkr';
+      
       for (const symbol of watchlist) {
         try {
+          // Try TWS first if in IBKR mode
+          if (useTWS) {
+            try {
+              const twsResponse = await fetch(\`/api/market/tws-quote/\${symbol}\`);
+              const twsResult = await twsResponse.json();
+              
+              if (twsResult.success && twsResult.data) {
+                const priceEl = document.getElementById('price-' + symbol);
+                const changeEl = document.getElementById('change-' + symbol);
+                const lowEl = document.getElementById('low-' + symbol);
+                const highEl = document.getElementById('high-' + symbol);
+                const volumeEl = document.getElementById('volume-' + symbol);
+                
+                if (priceEl) {
+                  priceEl.textContent = '$' + twsResult.data.last.toFixed(2);
+                }
+                
+                // For change %, we still need Yahoo as TWS doesn't provide it
+                const yahooResponse = await fetch(\`/api/market/quote/\${symbol}\`);
+                const yahooResult = await yahooResponse.json();
+                
+                if (changeEl && yahooResult.success) {
+                  const changePercent = yahooResult.data.changePercent.toFixed(2);
+                  const changeClass = yahooResult.data.change >= 0 ? 'positive' : 'negative';
+                  changeEl.textContent = (yahooResult.data.change >= 0 ? '+' : '') + changePercent + '%';
+                  changeEl.className = 'watchlist-change ' + changeClass;
+                }
+                
+                // Show bid/ask for TWS (just update the values, not labels)
+                if (lowEl && twsResult.data.bid) {
+                  lowEl.textContent = '$' + twsResult.data.bid.toFixed(2);
+                }
+                
+                if (highEl && twsResult.data.ask) {
+                  highEl.textContent = '$' + twsResult.data.ask.toFixed(2);
+                }
+                
+                if (volumeEl && yahooResult.success && yahooResult.data.volume) {
+                  const vol = yahooResult.data.volume;
+                  const volStr = vol >= 1000000 ? (vol / 1000000).toFixed(1) + 'M' : 
+                               vol >= 1000 ? (vol / 1000).toFixed(1) + 'K' : 
+                               vol.toString();
+                  volumeEl.textContent = volStr;
+                }
+                
+                continue; // Skip Yahoo fallback
+              }
+            } catch (twsError) {
+              console.log('TWS data not available for', symbol, '- falling back to Yahoo');
+            }
+          }
+          
+          // Fallback to Yahoo Finance
           const response = await fetch(\`/api/market/quote/\${symbol}\`);
           const result = await response.json();
           
           if (result.success && result.data) {
             const priceEl = document.getElementById('price-' + symbol);
             const changeEl = document.getElementById('change-' + symbol);
+            const lowEl = document.getElementById('low-' + symbol);
+            const highEl = document.getElementById('high-' + symbol);
+            const volumeEl = document.getElementById('volume-' + symbol);
             
             if (priceEl) {
               priceEl.textContent = '$' + result.data.price.toFixed(2);
@@ -1381,6 +1473,22 @@ router.get("/", (req: Request, res: Response) => {
               const changeClass = result.data.change >= 0 ? 'positive' : 'negative';
               changeEl.textContent = (result.data.change >= 0 ? '+' : '') + changePercent + '%';
               changeEl.className = 'watchlist-change ' + changeClass;
+            }
+            
+            if (lowEl && result.data.low) {
+              lowEl.textContent = '$' + result.data.low.toFixed(2);
+            }
+            
+            if (highEl && result.data.high) {
+              highEl.textContent = '$' + result.data.high.toFixed(2);
+            }
+            
+            if (volumeEl && result.data.volume) {
+              const vol = result.data.volume;
+              const volStr = vol >= 1000000 ? (vol / 1000000).toFixed(1) + 'M' : 
+                           vol >= 1000 ? (vol / 1000).toFixed(1) + 'K' : 
+                           vol.toString();
+              volumeEl.textContent = volStr;
             }
           }
         } catch (error) {
