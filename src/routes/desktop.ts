@@ -1869,8 +1869,9 @@ router.get("/", (req: Request, res: Response) => {
         }
       }
 
-      // Draw pending order lines
+      // Draw pending order lines (ONLY for current symbol on chart)
       for (const order of pendingOrders) {
+        // ✅ Fixed: Only draw lines for the symbol currently displayed on chart
         if (order.symbol === currentSymbolData.symbol && order.status !== 'Filled' && order.status !== 'Cancelled') {
           const price = order.stopPrice || order.limitPrice || 0;
           if (!price || price <= 0) continue;
@@ -1899,7 +1900,9 @@ router.get("/", (req: Request, res: Response) => {
             title: order.action + ' ' + orderTypeLabel + ' @ $' + price.toFixed(2),
           });
           orderLines[order.orderId] = line;
-          console.log('✅ Drew order line at $' + price.toFixed(2));
+          console.log(\`✅ Drew \${orderTypeLabel} order line for \${order.symbol} at $\${price.toFixed(2)}\`);
+        } else if (order.symbol !== currentSymbolData.symbol) {
+          console.log(\`ℹ️  Skipping \${order.symbol} order line (not on current chart: \${currentSymbolData.symbol})\`);
         }
       }
     }
