@@ -21,10 +21,37 @@ export interface Position {
 }
 
 export class PositionRepository {
+  // 🔒 Mutex to prevent race conditions when multiple execDetails events fire simultaneously
+  private upsertLocks: Map<string, Promise<void>> = new Map();
+
   /**
-   * Create or update a position
+   * Create or update a position (with race condition protection)
    */
   async upsert(position: Position): Promise<void> {
+    // Create unique lock key for this symbol+broker combination
+    const lockKey = `${position.symbol}-${position.broker}`;
+
+    // Wait for any existing upsert operation to complete
+    while (this.upsertLocks.has(lockKey)) {
+      await this.upsertLocks.get(lockKey);
+    }
+
+    // Create new lock for this operation
+    const operation = this._doUpsert(position);
+    this.upsertLocks.set(lockKey, operation);
+
+    try {
+      await operation;
+    } finally {
+      // Release lock
+      this.upsertLocks.delete(lockKey);
+    }
+  }
+
+  /**
+   * Internal upsert logic (protected by lock)
+   */
+  private async _doUpsert(position: Position): Promise<void> {
     try {
       // Since we removed the unique constraint, we need to manually check if position exists
       const existingPosition = await prisma.position.findFirst({
@@ -42,6 +69,8 @@ export class PositionRepository {
           (existingPosition.avgEntryPrice * existingPosition.quantity + 
            position.avgEntryPrice * position.quantity) / newQuantity;
         
+        console.log(`🔄 Accumulating position: ${position.symbol} from ${existingPosition.quantity} to ${newQuantity} shares`);
+        
         await prisma.position.update({
           where: { id: existingPosition.id },
           data: {
@@ -54,6 +83,8 @@ export class PositionRepository {
         });
       } else {
         // Create new position
+        console.log(`✨ Creating new position: ${position.symbol} ${position.quantity} shares @ $${position.avgEntryPrice}`);
+        
         await prisma.position.create({
           data: {
             symbol: position.symbol,
