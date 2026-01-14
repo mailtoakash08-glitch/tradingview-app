@@ -17,6 +17,7 @@ datasource db {
 model Order {
   id               String    @id @default(cuid())
   orderId          String    @unique // ORD-xxx format
+  externalOrderId  String?   // TWS/IBKR order ID for cancellation
   symbol           String
   strategy         String
   broker           String    // demo, ibkr, lightspeed

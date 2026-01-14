@@ -687,10 +687,11 @@ class IbkrClient {
       // Store mapping from IBKR orderId to our trackedOrderId
       this.orderIdMap.set(orderId, trackedOrderId);
 
-      // 💾 Save order to database
+      // 💾 Save order to database with TWS order ID
       try {
         await orderRepository.create({
           orderId: trackedOrderId,
+          externalOrderId: orderId.toString(), // ✅ Store TWS order ID for cancellation
           symbol: request.symbol,
           action: request.action as "BUY" | "SELL",
           orderType: request.orderType as "MKT" | "LMT" | "STP" | "TRAIL",
@@ -705,6 +706,7 @@ class IbkrClient {
         });
         logger.info("✅ IBKR order saved to database", {
           orderId: trackedOrderId,
+          twsOrderId: orderId,
         });
       } catch (dbError: any) {
         logger.error("Failed to save IBKR order to database", {
@@ -888,24 +890,66 @@ class IbkrClient {
     }
 
     try {
-      // Convert our tracked order ID to IBKR order ID
+      // First, try to get the order from the database to find the TWS order ID
       let ibkrOrderId: number | null = null;
 
-      // Search through our mapping
-      for (const [ibId, trackedId] of this.orderIdMap.entries()) {
-        if (trackedId === orderId) {
-          ibkrOrderId = ibId;
-          break;
+      // Try to find TWS order ID from database
+      try {
+        const dbOrder = await orderRepository.findById(orderId);
+        if (dbOrder && dbOrder.externalOrderId) {
+          ibkrOrderId = parseInt(dbOrder.externalOrderId);
+          logger.info("Found TWS order ID from database", {
+            orderId,
+            twsOrderId: ibkrOrderId,
+          });
+        }
+      } catch (dbError: any) {
+        logger.warn("Could not fetch order from database", {
+          orderId,
+          error: dbError.message,
+        });
+      }
+
+      // Fallback: Search through in-memory mapping
+      if (!ibkrOrderId) {
+        for (const [ibId, trackedId] of this.orderIdMap.entries()) {
+          if (trackedId === orderId) {
+            ibkrOrderId = ibId;
+            logger.info("Found TWS order ID from memory", {
+              orderId,
+              twsOrderId: ibkrOrderId,
+            });
+            break;
+          }
         }
       }
 
       if (!ibkrOrderId) {
-        logger.error("Order ID not found in mapping", { orderId });
+        logger.error(
+          "Order ID not found in database or memory - cannot cancel",
+          { orderId }
+        );
         return false;
       }
 
+      // Cancel the order in TWS
       this.ib.cancelOrder(ibkrOrderId);
-      logger.info("Order cancelled", { orderId, ibkrOrderId });
+      logger.info("✅ Cancel request sent to TWS", { orderId, ibkrOrderId });
+
+      // Update database status (will be confirmed by TWS event)
+      try {
+        await orderRepository.update(orderId, {
+          status: "CANCELLED",
+          cancelledAt: new Date().toISOString(),
+        });
+        logger.info("✅ Order marked as cancelled in database", { orderId });
+      } catch (dbError: any) {
+        logger.error("Failed to update order status in database", {
+          orderId,
+          error: dbError.message,
+        });
+      }
+
       return true;
     } catch (error: any) {
       logger.error("Failed to cancel order", {

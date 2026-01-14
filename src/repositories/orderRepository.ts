@@ -7,6 +7,7 @@ import prisma from '../services/database';
 
 export interface InternalOrder {
   orderId: string;
+  externalOrderId?: string; // TWS/IBKR order ID
   symbol: string;
   action: string;
   orderType: string;
@@ -43,6 +44,7 @@ export class OrderRepository {
         create: {
           // Don't set `id` manually - let Prisma auto-increment it
           orderId: order.orderId,
+          externalOrderId: order.externalOrderId, // ✅ Store TWS order ID
           symbol: order.symbol,
           strategy: order.strategy || 'manual',
           broker: order.broker || 'demo',
@@ -62,6 +64,46 @@ export class OrderRepository {
     } catch (error) {
       console.error('Error creating order in database:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Find order by orderId
+   */
+  async findById(orderId: string): Promise<InternalOrder | null> {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { orderId },
+      });
+
+      if (!order) {
+        return null;
+      }
+
+      return {
+        orderId: order.orderId,
+        externalOrderId: order.externalOrderId || undefined,
+        symbol: order.symbol,
+        action: order.action,
+        orderType: order.orderType,
+        quantity: order.quantity,
+        limitPrice: order.limitPrice || undefined,
+        stopPrice: order.stopPrice || undefined,
+        trailingAmount: order.trailingAmount || undefined,
+        status: order.status,
+        filledQuantity: order.filledQuantity,
+        avgFillPrice: order.avgFillPrice || undefined,
+        strategy: order.strategy,
+        broker: order.broker,
+        outsideRth: order.outsideRth,
+        submittedAt: order.submittedAt.toISOString(),
+        filledAt: order.filledAt?.toISOString(),
+        cancelledAt: order.cancelledAt?.toISOString(),
+        errorMessage: order.errorMessage || undefined,
+      };
+    } catch (error) {
+      console.error('Error finding order by ID:', error);
+      return null;
     }
   }
 
