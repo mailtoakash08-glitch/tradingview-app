@@ -1876,7 +1876,19 @@ router.get("/", (req: Request, res: Response) => {
           if (!price || price <= 0) continue;
           
           const color = order.action === 'BUY' ? '#26a69a' : '#ef5350';
-          const orderTypeLabel = order.orderType === 'STP' ? 'STOP' : 'LIMIT';
+          let orderTypeLabel = 'ORDER';
+          
+          // Determine label based on order type
+          if (order.orderType === 'STP') {
+            orderTypeLabel = 'STOP';
+          } else if (order.orderType === 'LMT') {
+            orderTypeLabel = 'LIMIT';
+          } else if (order.orderType === 'STP_LMT') {
+            // 🎯 Stop-Limit: Show both prices
+            orderTypeLabel = 'STP-LMT ' + order.stopPrice + '→' + order.limitPrice;
+          } else if (order.orderType === 'TRAIL') {
+            orderTypeLabel = 'TRAIL';
+          }
           
           const line = lwCandleSeries.createPriceLine({
             price: price,
@@ -2559,6 +2571,9 @@ router.get("/", (req: Request, res: Response) => {
           triggerPrice = order.limitPrice;
         } else if (order.orderType === 'STP' && order.stopPrice) {
           triggerPrice = order.stopPrice;
+        } else if (order.orderType === 'STP_LMT' && order.stopPrice && order.limitPrice) {
+          // 🎯 Stop-Limit: Show both prices
+          triggerPrice = order.stopPrice + ' → ' + order.limitPrice;
         } else if (order.orderType === 'TRAIL' && order.trailingAmount) {
           triggerPrice = order.trailingAmount;
         }
@@ -2568,13 +2583,14 @@ router.get("/", (req: Request, res: Response) => {
         if (order.orderType === 'TRAIL') orderTypeDisplay = 'TRAILING';
         if (order.orderType === 'LMT') orderTypeDisplay = 'LIMIT';
         if (order.orderType === 'STP') orderTypeDisplay = 'STOP';
+        if (order.orderType === 'STP_LMT') orderTypeDisplay = 'STOP-LIMIT';
         if (order.orderType === 'MKT') orderTypeDisplay = 'MARKET';
         
         return \`
           <tr>
             <td class="symbol-cell">\${order.symbol}</td>
             <td>\${orderTypeDisplay}</td>
-            <td class="order-trigger">$\${typeof triggerPrice === 'number' ? triggerPrice.toFixed(2) : triggerPrice}</td>
+            <td class="order-trigger">\${typeof triggerPrice === 'number' ? '$' + triggerPrice.toFixed(2) : triggerPrice}</td>
             <td>\${order.quantity}</td>
             <td class="\${sideClass}">\${order.action}</td>
             <td class="order-status-pending">\${order.status || 'PENDING'}</td>
