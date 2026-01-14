@@ -9,6 +9,8 @@ import { positionManager } from "../services/positionManager";
 import { orderTracker } from "../services/orderTracker";
 import { positionRepository } from "../repositories/positionRepository";
 import { orderRepository } from "../repositories/orderRepository";
+import { ibkrClient } from "../services/ibkrClient";
+import { demoClient } from "../services/demoClient";
 import { logger } from "../logger";
 
 const router = Router();
@@ -429,13 +431,29 @@ router.post("/orders/:orderId/cancel", async (req: Request, res: Response) => {
       });
     }
 
-    // Update order status to CANCELLED
-    await orderRepository.update(orderId, {
-      status: "CANCELLED",
-      cancelledAt: new Date().toISOString(),
-    });
+    // ✅ Actually cancel the order in the broker!
+    if (order.broker === "ibkr") {
+      const cancelled = await ibkrClient.cancelOrder(orderId);
+      if (!cancelled) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to send cancel request to TWS",
+        });
+      }
+    } else if (order.broker === "demo") {
+      const cancelled = await demoClient.cancelOrder(orderId);
+      if (!cancelled) {
+        return res.status(500).json({
+          success: false,
+          error: "Failed to cancel demo order",
+        });
+      }
+    }
 
-    logger.info("Order cancelled", {
+    // The cancel status update is now handled by ibkrClient.cancelOrder()
+    // So we don't need to update it here anymore
+
+    logger.info("✅ Order cancelled successfully", {
       orderId,
       symbol: order.symbol,
       broker: order.broker,
