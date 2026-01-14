@@ -19,7 +19,7 @@ export interface TrackedOrder {
   orderId: string;
   symbol: string;
   action: 'BUY' | 'SELL';
-  orderType: 'MKT' | 'LMT' | 'STP' | 'TRAIL';
+  orderType: 'MKT' | 'LMT' | 'STP' | 'STP_LMT' | 'TRAIL'; // Added Stop-Limit
   quantity: number;
   limitPrice?: number;
   stopPrice?: number;

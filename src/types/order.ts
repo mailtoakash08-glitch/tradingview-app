@@ -13,10 +13,11 @@ export interface TradeSignal {
   action: TradingViewAction;
   quantity: number;
   broker?: "ibkr" | "lightspeed" | "demo"; // Broker selection (added demo)
-  orderType?: "MKT" | "LMT" | "STP" | "TRAIL"; // Explicit order type from UI
+  orderType?: "MKT" | "LMT" | "STP" | "STP_LMT" | "TRAIL"; // Added Stop-Limit
   takeProfitPrice?: number;
   stopLossPrice?: number;
   stopPrice?: number; // For STOP MARKET entry orders
+  limitPrice?: number; // For LIMIT orders and Stop-Limit orders
   trailingStopDistance?: number;
   outsideRth: boolean;
   timestamp: Date;
@@ -29,7 +30,7 @@ export interface TradeSignal {
 export interface IbkrOrderRequest {
   symbol: string;
   action: "BUY" | "SELL";
-  orderType: "MKT" | "LMT" | "STP" | "TRAIL";
+  orderType: "MKT" | "LMT" | "STP" | "STP_LMT" | "TRAIL"; // Added Stop-Limit
   quantity: number;
   limitPrice?: number;
   stopPrice?: number;

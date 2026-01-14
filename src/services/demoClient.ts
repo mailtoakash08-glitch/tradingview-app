@@ -117,6 +117,27 @@ class DemoClient {
           shouldTrigger = true;
           logger.info(`🎮 DEMO: SELL STOP triggered! Price ${currentPrice} <= ${order.stopPrice}`);
         }
+      } else if (order.orderType === 'STP_LMT' && order.stopPrice && order.limitPrice) {
+        // 🎯 Stop-Limit order logic:
+        // 1. First check if stop price is triggered
+        // 2. Then check if price is within limit
+        let stopTriggered = false;
+        if (order.action === 'BUY' && currentPrice >= order.stopPrice) {
+          stopTriggered = true;
+        } else if (order.action === 'SELL' && currentPrice <= order.stopPrice) {
+          stopTriggered = true;
+        }
+        
+        if (stopTriggered) {
+          // Stop triggered, now check limit
+          if (order.action === 'BUY' && currentPrice <= order.limitPrice) {
+            shouldTrigger = true;
+            logger.info(`🎮 DEMO: BUY STOP-LIMIT triggered! Stop: ${order.stopPrice}, Limit: ${order.limitPrice}, Price: ${currentPrice}`);
+          } else if (order.action === 'SELL' && currentPrice >= order.limitPrice) {
+            shouldTrigger = true;
+            logger.info(`🎮 DEMO: SELL STOP-LIMIT triggered! Stop: ${order.stopPrice}, Limit: ${order.limitPrice}, Price: ${currentPrice}`);
+          }
+        }
       } else if (order.orderType === 'LMT' && order.limitPrice) {
         // Limit order logic:
         // BUY LIMIT: triggers when price falls to or below limit price
@@ -193,8 +214,8 @@ class DemoClient {
       setTimeout(() => {
         this.simulateFill(orderId, orderRequest);
       }, this.fillDelay);
-    } else if (orderRequest.orderType === 'STP' || orderRequest.orderType === 'LMT') {
-      // Stop/Limit order: add to pending orders for price monitoring
+    } else if (orderRequest.orderType === 'STP' || orderRequest.orderType === 'LMT' || orderRequest.orderType === 'STP_LMT') {
+      // Stop/Limit/Stop-Limit order: add to pending orders for price monitoring
       this.pendingOrders.set(orderId, {
         orderId,
         order: orderRequest,
@@ -202,7 +223,8 @@ class DemoClient {
       });
       
       const triggerPrice = orderRequest.stopPrice || orderRequest.limitPrice;
-      logger.info(`🎮 DEMO: ${orderRequest.orderType} order is PENDING - waiting for price to reach $${triggerPrice?.toFixed(2)}`);
+      const orderTypeLabel = orderRequest.orderType === 'STP_LMT' ? 'STOP-LIMIT' : orderRequest.orderType;
+      logger.info(`🎮 DEMO: ${orderTypeLabel} order is PENDING - waiting for price to reach $${triggerPrice?.toFixed(2)}`);
     } else if (orderRequest.orderType === 'TRAIL') {
       // Trailing stop: for now, fill immediately (TODO: implement trailing logic)
       logger.info(`🎮 DEMO: Trailing stop will fill in ${this.fillDelay/1000} seconds`);

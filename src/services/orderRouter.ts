@@ -31,13 +31,26 @@ class OrderRouter {
     };
 
     // Add limit price for limit orders
-    if (orderRequest.orderType === "LMT" && signal.takeProfitPrice) {
-      orderRequest.limitPrice = signal.takeProfitPrice;
+    if (orderRequest.orderType === "LMT" && (signal.limitPrice || signal.takeProfitPrice)) {
+      orderRequest.limitPrice = signal.limitPrice || signal.takeProfitPrice;
     }
 
     // Add stop price for stop orders
     if (orderRequest.orderType === "STP" && (signal.stopLossPrice || signal.stopPrice)) {
       orderRequest.stopPrice = signal.stopLossPrice || signal.stopPrice;
+    }
+
+    // 🎯 Add BOTH stop and limit prices for Stop-Limit orders
+    if (orderRequest.orderType === "STP_LMT") {
+      if (signal.stopPrice && signal.limitPrice) {
+        orderRequest.stopPrice = signal.stopPrice;
+        orderRequest.limitPrice = signal.limitPrice;
+      } else {
+        logger.warn("Stop-Limit order missing stop or limit price", {
+          stopPrice: signal.stopPrice,
+          limitPrice: signal.limitPrice,
+        });
+      }
     }
 
     // Add trailing stop amount
@@ -95,7 +108,7 @@ class OrderRouter {
    */
   private determineOrderType(
     signal: TradeSignal
-  ): "MKT" | "LMT" | "STP" | "TRAIL" {
+  ): "MKT" | "LMT" | "STP" | "STP_LMT" | "TRAIL" {
     // If order type is explicitly specified (from UI), use it
     if (signal.orderType) {
       return signal.orderType;

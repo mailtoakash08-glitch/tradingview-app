@@ -1017,6 +1017,7 @@ router.get("/", (req: Request, res: Response) => {
             <option value="MKT">Market Order</option>
             <option value="LMT">Limit Order</option>
             <option value="STP">Stop Market</option>
+            <option value="STP_LMT">Stop-Limit Order</option>
             <option value="TRAIL">Trailing Stop</option>
           </select>
         </div>
@@ -2150,6 +2151,10 @@ router.get("/", (req: Request, res: Response) => {
         limitPriceGroup.style.display = 'block';
       } else if (orderType === 'STP') {
         stopPriceGroup.style.display = 'block';
+      } else if (orderType === 'STP_LMT') {
+        // 🎯 Stop-Limit: Show BOTH stop and limit price fields
+        stopPriceGroup.style.display = 'block';
+        limitPriceGroup.style.display = 'block';
       } else if (orderType === 'TRAIL') {
         trailingAmountGroup.style.display = 'block';
       }
@@ -2229,6 +2234,16 @@ router.get("/", (req: Request, res: Response) => {
           return;
         }
         payload.stopPrice = stopPrice;
+      } else if (orderType === 'STP_LMT') {
+        // 🎯 Stop-Limit: Requires BOTH stop and limit prices
+        const stopPrice = parseFloat(document.getElementById('stopPrice').value);
+        const limitPrice = parseFloat(document.getElementById('limitPrice').value);
+        if (!stopPrice || !limitPrice) {
+          showNotification('Error', 'Please enter both stop price and limit price', 'error');
+          return;
+        }
+        payload.stopPrice = stopPrice;
+        payload.limitPrice = limitPrice;
       } else if (orderType === 'TRAIL') {
         const trailingAmount = parseFloat(document.getElementById('trailingAmount').value);
         if (!trailingAmount) {

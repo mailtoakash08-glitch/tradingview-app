@@ -76,8 +76,8 @@ class OrderParser {
       quantity,
       // Extract broker selection (ibkr, lightspeed, or demo)
       broker: alert.broker as "ibkr" | "lightspeed" | "demo" | undefined,
-      // Extract explicit order type from UI
-      orderType: alert.orderType as "MKT" | "LMT" | "STP" | "TRAIL" | undefined,
+      // Extract explicit order type from UI (added STP_LMT)
+      orderType: alert.orderType as "MKT" | "LMT" | "STP" | "STP_LMT" | "TRAIL" | undefined,
       // Default to true for extended hours trading (client requirement)
       // Can be explicitly set to false in alert if regular hours only
       outsideRth: alert.outsideRth !== undefined ? alert.outsideRth : true,
@@ -90,9 +90,9 @@ class OrderParser {
       signal.takeProfitPrice = alert.tp;
     }
 
-    // Support limitPrice from UI (for limit orders)
+    // Support limitPrice from UI (for limit orders and stop-limit orders)
     if (alert.limitPrice && alert.limitPrice > 0) {
-      signal.takeProfitPrice = alert.limitPrice;
+      signal.limitPrice = alert.limitPrice; // ✅ Fixed: store as limitPrice, not takeProfitPrice
     }
 
     if (alert.sl && alert.sl > 0) {
