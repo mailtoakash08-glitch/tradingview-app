@@ -50,6 +50,8 @@ class RiskManager {
         return config.strategies.momentum.enabled;
       case "manual_bmnr":
         return config.strategies.manualBmnr.enabled;
+      case "one_click_trading":
+        return true; // One-click trading is always enabled
       default:
         return false;
     }
