@@ -2442,6 +2442,8 @@ router.get("/", (req: Request, res: Response) => {
         
         const result = await response.json();
         
+        console.log('🎯 Order response:', result);
+        
         if (result.success) {
           showNotification('✅ Order Placed!', \`\${action} \${quantity} \${symbol} @ ~$\${currentPrice.toFixed(2)}\`, 'success');
           
@@ -2460,7 +2462,8 @@ router.get("/", (req: Request, res: Response) => {
           }, 1500);
           
         } else {
-          showNotification('❌ Order Failed', result.message || 'Unknown error', 'error');
+          console.error('❌ Order failed:', result);
+          showNotification('❌ Order Failed', result.message || result.error || JSON.stringify(result), 'error');
         }
       } catch (error) {
         console.error('Error placing order:', error);
