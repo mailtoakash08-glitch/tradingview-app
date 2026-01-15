@@ -2496,41 +2496,48 @@ router.get("/", (req: Request, res: Response) => {
       console.log('Drawing protection lines:', { entryPrice, stopLossPrice, takeProfitPrice });
       
       try {
+        // Entry line - BLUE SOLID
         protectionLines.entry = lwCandleSeries.createPriceLine({
           price: entryPrice,
           color: '#2196F3',
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Solid,
           axisLabelVisible: true,
-          title: \`💵 ENTRY \${quantity} \${direction} @ $\${entryPrice.toFixed(2)}\`
+          title: 'ENTRY ' + quantity + ' ' + symbol + ' @ $' + entryPrice.toFixed(2)
         });
         
+        // Stop Loss line - RED DASHED with P&L info
+        const slDiff = direction === 'LONG' ? (stopLossPrice - entryPrice) : (entryPrice - stopLossPrice);
+        const slPnL = slDiff * quantity;
         protectionLines.stopLoss = lwCandleSeries.createPriceLine({
           price: stopLossPrice,
           color: '#F44336',
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: \`🛑 STOP LOSS $\${stopLossPrice.toFixed(2)}\`
+          title: 'SL ' + quantity + ' @ $' + stopLossPrice.toFixed(2) + ' ' + (slPnL >= 0 ? '+' : '') + slPnL.toFixed(2) + ' USD'
         });
         
+        // Take Profit line - GREEN DASHED with P&L info
+        const tpDiff = direction === 'LONG' ? (takeProfitPrice - entryPrice) : (entryPrice - takeProfitPrice);
+        const tpPnL = tpDiff * quantity;
         protectionLines.takeProfit = lwCandleSeries.createPriceLine({
           price: takeProfitPrice,
           color: '#4CAF50',
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: \`🎯 TAKE PROFIT $\${takeProfitPrice.toFixed(2)}\`
+          title: 'TP ' + quantity + ' @ $' + takeProfitPrice.toFixed(2) + ' +' + tpPnL.toFixed(2) + ' USD'
         });
         
-        // Add current price line (yellow, solid)
+        // Current price line - YELLOW SOLID
         protectionLines.currentPrice = lwCandleSeries.createPriceLine({
           price: entryPrice,
           color: '#FFC107',
-          lineWidth: 2,
+          lineWidth: 1,
           lineStyle: LightweightCharts.LineStyle.Solid,
           axisLabelVisible: true,
-          title: \`📊 CURRENT $\${entryPrice.toFixed(2)}\`
+          title: 'Current $' + entryPrice.toFixed(2)
         });
         
         updatePnLDisplay(quantity, entryPrice, stopLossPrice, takeProfitPrice, direction);
@@ -2626,7 +2633,12 @@ router.get("/", (req: Request, res: Response) => {
       
       const slPrice = activePosition.stopLossPrice;
       const tpPrice = activePosition.takeProfitPrice;
-      const tolerance = Math.abs(tpPrice - slPrice) * 0.02; // 2% of range
+      
+      // Calculate tolerance based on chart price range
+      const priceRange = Math.abs(tpPrice - slPrice);
+      const tolerance = priceRange * 0.05; // 5% of range
+      
+      console.log('Mouse down at price:', price, 'SL:', slPrice, 'TP:', tpPrice, 'Tolerance:', tolerance);
       
       if (Math.abs(price - slPrice) < tolerance) {
         isDraggingProtectionLine = true;
@@ -2634,12 +2646,14 @@ router.get("/", (req: Request, res: Response) => {
         dragProtectionStartPrice = slPrice;
         e.currentTarget.style.cursor = 'ns-resize';
         console.log('🖱️ Started dragging Stop Loss line');
+        e.preventDefault();
       } else if (Math.abs(price - tpPrice) < tolerance) {
         isDraggingProtectionLine = true;
         draggedProtectionLineType = 'takeProfit';
         dragProtectionStartPrice = tpPrice;
         e.currentTarget.style.cursor = 'ns-resize';
         console.log('🖱️ Started dragging Take Profit line');
+        e.preventDefault();
       }
     }
     
@@ -2652,9 +2666,16 @@ router.get("/", (req: Request, res: Response) => {
       
       if (!newPrice) return;
       
+      const { symbol, quantity, entryPrice, direction } = activePosition;
+      
       // Update the line position visually
       if (draggedProtectionLineType === 'stopLoss') {
         activePosition.stopLossPrice = newPrice;
+        
+        // Calculate P&L for new stop loss
+        const slDiff = direction === 'LONG' ? (newPrice - entryPrice) : (entryPrice - newPrice);
+        const slPnL = slDiff * quantity;
+        
         if (protectionLines.stopLoss) {
           lwCandleSeries.removePriceLine(protectionLines.stopLoss);
           protectionLines.stopLoss = lwCandleSeries.createPriceLine({
@@ -2663,11 +2684,16 @@ router.get("/", (req: Request, res: Response) => {
             lineWidth: 2,
             lineStyle: LightweightCharts.LineStyle.Dashed,
             axisLabelVisible: true,
-            title: \`🛑 STOP LOSS $\${newPrice.toFixed(2)}\`
+            title: 'SL ' + quantity + ' @ $' + newPrice.toFixed(2) + ' ' + (slPnL >= 0 ? '+' : '') + slPnL.toFixed(2) + ' USD'
           });
         }
       } else if (draggedProtectionLineType === 'takeProfit') {
         activePosition.takeProfitPrice = newPrice;
+        
+        // Calculate P&L for new take profit
+        const tpDiff = direction === 'LONG' ? (newPrice - entryPrice) : (entryPrice - newPrice);
+        const tpPnL = tpDiff * quantity;
+        
         if (protectionLines.takeProfit) {
           lwCandleSeries.removePriceLine(protectionLines.takeProfit);
           protectionLines.takeProfit = lwCandleSeries.createPriceLine({
@@ -2676,7 +2702,7 @@ router.get("/", (req: Request, res: Response) => {
             lineWidth: 2,
             lineStyle: LightweightCharts.LineStyle.Dashed,
             axisLabelVisible: true,
-            title: \`🎯 TAKE PROFIT $\${newPrice.toFixed(2)}\`
+            title: 'TP ' + quantity + ' @ $' + newPrice.toFixed(2) + ' +' + tpPnL.toFixed(2) + ' USD'
           });
         }
       }
