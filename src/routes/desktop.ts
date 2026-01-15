@@ -2662,7 +2662,7 @@ router.get("/", (req: Request, res: Response) => {
       
       // Calculate tolerance based on chart price range
       const priceRange = Math.abs(tpPrice - slPrice);
-      const tolerance = priceRange * 0.05; // 5% of range
+      const tolerance = priceRange * 0.15; // 15% of range (more forgiving)
       
       console.log('Drag detection:', { price, slPrice, tpPrice, priceRange, tolerance, slDiff: Math.abs(price - slPrice), tpDiff: Math.abs(price - tpPrice) });
       
@@ -3323,7 +3323,25 @@ router.get("/", (req: Request, res: Response) => {
 
         if (response.ok) {
           showNotification('Cancelled', 'Order cancelled successfully', 'success');
-          setTimeout(() => fetchPendingOrders(), 1000);
+          setTimeout(() => {
+            fetchPendingOrders();
+            
+            // If in One-Click mode and this was a protection order, check if we should clear lines
+            if (oneClickMode && activePosition) {
+              // Check if there are any remaining pending orders for this symbol
+              const remainingOrders = pendingOrders.filter(o => 
+                o.symbol === activePosition.symbol && 
+                o.orderId !== orderId
+              );
+              
+              // If no more pending orders for this position, clear protection lines
+              if (remainingOrders.length === 0) {
+                console.log('No more pending orders for', activePosition.symbol, '- clearing protection lines');
+                removeProtectionLines();
+                activePosition = null;
+              }
+            }
+          }, 1000);
         } else {
           showNotification('Error', result.error || 'Failed to cancel order', 'error');
         }
