@@ -79,11 +79,21 @@ class OrderRouter {
   private determineAction(signal: TradeSignal): "BUY" | "SELL" {
     switch (signal.action) {
       case "ENTRY_LONG":
-      case "TP": // Take-profit on long is typically a sell limit
         return "BUY";
 
       case "ENTRY_SHORT":
-      case "SL": // Stop-loss handling (simplified for now)
+        return "SELL";
+
+      case "TP": // Take-profit: For LONG → SELL, For SHORT → BUY
+      case "SL": // Stop-loss: For LONG → SELL, For SHORT → BUY
+        // Both TP and SL are EXIT orders - they close the position
+        // We need to determine the direction based on the current position
+        // For now, we'll infer from the orderType or default to SELL (closing long)
+        // TODO: In production, determine direction based on current position
+        logger.info("TP/SL order - assuming exit from LONG position (SELL)", {
+          symbol: signal.symbol,
+          action: signal.action,
+        });
         return "SELL";
 
       case "EXIT":

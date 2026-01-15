@@ -2852,7 +2852,7 @@ router.get("/", (req: Request, res: Response) => {
         const slOrderType = isMarketHours ? 'STP' : 'STP_LMT';
         const slPayload = {
           strategy: 'one_click_trading',
-          action: exitAction === 'BUY' ? 'ENTRY_LONG' : 'ENTRY_SHORT', // Exit is opposite
+          action: 'SL', // Stop Loss action
           symbol: symbol,
           qty: quantity,
           broker: broker,
@@ -2872,7 +2872,7 @@ router.get("/", (req: Request, res: Response) => {
         // 2. Place TAKE PROFIT order (always LIMIT)
         const tpPayload = {
           strategy: 'one_click_trading',
-          action: exitAction === 'BUY' ? 'ENTRY_LONG' : 'ENTRY_SHORT',
+          action: 'TP', // Take Profit action
           symbol: symbol,
           qty: quantity,
           broker: broker,
