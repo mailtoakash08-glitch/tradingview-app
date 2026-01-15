@@ -1489,7 +1489,8 @@ router.get("/", (req: Request, res: Response) => {
           // Try TWS first if in IBKR mode
           if (useTWS) {
             try {
-              const twsResponse = await fetch(\`/api/market/tws-quote/\${symbol}\`);
+              const cleanSymbol = symbol.split(':')[0]; // Remove any :1 suffix
+              const twsResponse = await fetch(\`/api/market/tws-quote/\${cleanSymbol}\`);
               const twsResult = await twsResponse.json();
               
               if (twsResult.success && twsResult.data) {
@@ -1504,7 +1505,7 @@ router.get("/", (req: Request, res: Response) => {
                 }
                 
                 // For change %, we still need Yahoo as TWS doesn't provide it
-                const yahooResponse = await fetch(\`/api/market/quote/\${symbol}\`);
+                const yahooResponse = await fetch(\`/api/market/quote/\${cleanSymbol}\`);
                 const yahooResult = await yahooResponse.json();
                 
                 if (changeEl && yahooResult.success) {
@@ -1539,7 +1540,8 @@ router.get("/", (req: Request, res: Response) => {
           }
           
           // Fallback to Yahoo Finance
-          const response = await fetch(\`/api/market/quote/\${symbol}\`);
+          const cleanSymbol = symbol.split(':')[0]; // Remove any :1 suffix
+          const response = await fetch(\`/api/market/quote/\${cleanSymbol}\`);
           const result = await response.json();
           
           if (result.success && result.data) {
