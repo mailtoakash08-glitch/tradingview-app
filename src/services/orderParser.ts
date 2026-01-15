@@ -40,7 +40,7 @@ class OrderParser {
 
     // Validate strategy
     if (alert.strategy) {
-      const validStrategies = ['bread_and_butter', 'momentum', 'manual_bmnr'];
+      const validStrategies = ['bread_and_butter', 'momentum', 'manual_bmnr', 'one_click_trading'];
       if (!validStrategies.includes(alert.strategy)) {
         errors.push(
           `Invalid strategy: ${alert.strategy}. Must be one of: ${validStrategies.join(', ')}`
