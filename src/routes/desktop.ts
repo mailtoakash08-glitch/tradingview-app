@@ -2609,27 +2609,50 @@ router.get("/", (req: Request, res: Response) => {
     let dragProtectionStartPrice = null;
     
     function setupProtectionLineDragging() {
-      if (!lwChart) return;
+      if (!lwChart) {
+        console.error('Cannot setup dragging: lwChart not available');
+        return;
+      }
       
       const chartElement = document.getElementById('lightweightChart');
-      if (!chartElement) return;
+      if (!chartElement) {
+        console.error('Cannot setup dragging: chart element not found');
+        return;
+      }
       
+      // Remove existing listeners first
+      chartElement.removeEventListener('mousedown', handleLineMouseDown);
+      chartElement.removeEventListener('mousemove', handleLineMouseMove);
+      chartElement.removeEventListener('mouseup', handleLineMouseUp);
+      chartElement.removeEventListener('mouseleave', handleLineMouseUp);
+      
+      // Add new listeners
       chartElement.addEventListener('mousedown', handleLineMouseDown);
       chartElement.addEventListener('mousemove', handleLineMouseMove);
       chartElement.addEventListener('mouseup', handleLineMouseUp);
       chartElement.addEventListener('mouseleave', handleLineMouseUp);
       
-      console.log('✅ Protection line dragging enabled');
+      console.log('✅ Protection line dragging enabled on chart element');
     }
     
     function handleLineMouseDown(e) {
-      if (!activePosition || !protectionLines.stopLoss || !protectionLines.takeProfit) return;
+      console.log('🖱️ Mouse down event triggered!', { hasPosition: !!activePosition, hasSL: !!protectionLines.stopLoss, hasTP: !!protectionLines.takeProfit });
+      
+      if (!activePosition || !protectionLines.stopLoss || !protectionLines.takeProfit) {
+        console.log('Cannot drag: missing requirements');
+        return;
+      }
       
       const rect = e.currentTarget.getBoundingClientRect();
       const y = e.clientY - rect.top;
       const price = coordinateToPrice(y);
       
-      if (!price) return;
+      console.log('Mouse position:', { clientY: e.clientY, rectTop: rect.top, y, price });
+      
+      if (!price) {
+        console.log('Cannot drag: price conversion failed');
+        return;
+      }
       
       const slPrice = activePosition.stopLossPrice;
       const tpPrice = activePosition.takeProfitPrice;
@@ -2638,22 +2661,24 @@ router.get("/", (req: Request, res: Response) => {
       const priceRange = Math.abs(tpPrice - slPrice);
       const tolerance = priceRange * 0.05; // 5% of range
       
-      console.log('Mouse down at price:', price, 'SL:', slPrice, 'TP:', tpPrice, 'Tolerance:', tolerance);
+      console.log('Drag detection:', { price, slPrice, tpPrice, priceRange, tolerance, slDiff: Math.abs(price - slPrice), tpDiff: Math.abs(price - tpPrice) });
       
       if (Math.abs(price - slPrice) < tolerance) {
         isDraggingProtectionLine = true;
         draggedProtectionLineType = 'stopLoss';
         dragProtectionStartPrice = slPrice;
         e.currentTarget.style.cursor = 'ns-resize';
-        console.log('🖱️ Started dragging Stop Loss line');
+        console.log('🎯 Started dragging Stop Loss line');
         e.preventDefault();
       } else if (Math.abs(price - tpPrice) < tolerance) {
         isDraggingProtectionLine = true;
         draggedProtectionLineType = 'takeProfit';
         dragProtectionStartPrice = tpPrice;
         e.currentTarget.style.cursor = 'ns-resize';
-        console.log('🖱️ Started dragging Take Profit line');
+        console.log('🎯 Started dragging Take Profit line');
         e.preventDefault();
+      } else {
+        console.log('No line detected at this position');
       }
     }
     
@@ -2737,14 +2762,39 @@ router.get("/", (req: Request, res: Response) => {
     
     // Convert Y-coordinate to price using Lightweight Charts API
     function coordinateToPrice(y) {
-      if (!lwChart) return null;
+      if (!lwChart) {
+        console.error('lwChart not available');
+        return null;
+      }
       
       try {
-        const priceScale = lwChart.priceScale('right');
+        // Get the price scale
+        const timeScale = lwChart.timeScale();
+        const priceScale = lwCandleSeries.priceScale();
+        
+        // Convert coordinate to price
         const price = priceScale.coordinateToPrice(y);
+        
+        console.log('Coordinate to price:', y, '->', price);
         return price;
       } catch (error) {
         console.error('Error converting coordinate to price:', error);
+        
+        // Fallback: manual calculation
+        try {
+          const chartHeight = document.getElementById('lightweightChart').clientHeight;
+          const priceRange = lwChart.priceScale('right').getVisibleRange();
+          
+          if (priceRange) {
+            const pricePerPixel = (priceRange.from - priceRange.to) / chartHeight;
+            const price = priceRange.to + (y * pricePerPixel);
+            console.log('Fallback price calculation:', price);
+            return price;
+          }
+        } catch (e) {
+          console.error('Fallback also failed:', e);
+        }
+        
         return null;
       }
     }
