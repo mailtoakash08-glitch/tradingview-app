@@ -1302,7 +1302,8 @@ router.get("/", (req: Request, res: Response) => {
     let protectionLines = {
       entry: null,
       stopLoss: null,
-      takeProfit: null
+      takeProfit: null,
+      currentPrice: null
     };
     let activePosition = null; // Track active position for protection lines
     let isDraggingStop = false;
@@ -2416,8 +2417,10 @@ router.get("/", (req: Request, res: Response) => {
       
       const marketStatus = checkMarketHours();
       const isMarketHours = marketStatus.isOpen;
-      const orderType = isMarketHours ? 'MKT' : 'LMT';
-      const limitPrice = isMarketHours ? null : (action === 'BUY' ? currentPrice + 0.50 : currentPrice - 0.50);
+      
+      // Entry order: STOP order (or STOP-LIMIT outside RTH)
+      const orderType = isMarketHours ? 'STP' : 'STP_LMT';
+      const stopPrice = currentPrice; // Enter at current price
       
       const payload = {
         strategy: 'one_click_trading',
@@ -2426,10 +2429,17 @@ router.get("/", (req: Request, res: Response) => {
         qty: quantity,
         broker: broker,
         orderType: orderType,
+        stopPrice: stopPrice,
         outsideRth: !isMarketHours
       };
       
-      if (limitPrice) payload.limitPrice = limitPrice;
+      // For Stop-Limit outside RTH, add limit price with margin
+      if (!isMarketHours && orderType === 'STP_LMT') {
+        const margin = getStopLimitMargin() / 100;
+        payload.limitPrice = action === 'BUY' 
+          ? stopPrice * (1 + margin) 
+          : stopPrice * (1 - margin);
+      }
       
       try {
         showNotification('⚡ Placing Order...', \`\${action} \${quantity} \${symbol}\`, 'info');
@@ -2513,6 +2523,16 @@ router.get("/", (req: Request, res: Response) => {
           title: \`🎯 TAKE PROFIT $\${takeProfitPrice.toFixed(2)}\`
         });
         
+        // Add current price line (yellow, solid)
+        protectionLines.currentPrice = lwCandleSeries.createPriceLine({
+          price: entryPrice,
+          color: '#FFC107',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Solid,
+          axisLabelVisible: true,
+          title: \`📊 CURRENT $\${entryPrice.toFixed(2)}\`
+        });
+        
         updatePnLDisplay(quantity, entryPrice, stopLossPrice, takeProfitPrice, direction);
         document.getElementById('oneClickPnLDisplay').style.display = 'block';
         
@@ -2547,6 +2567,10 @@ router.get("/", (req: Request, res: Response) => {
         if (protectionLines.takeProfit) {
           lwCandleSeries.removePriceLine(protectionLines.takeProfit);
           protectionLines.takeProfit = null;
+        }
+        if (protectionLines.currentPrice) {
+          lwCandleSeries.removePriceLine(protectionLines.currentPrice);
+          protectionLines.currentPrice = null;
         }
       } catch (e) {
         console.error('Error removing protection lines:', e);
