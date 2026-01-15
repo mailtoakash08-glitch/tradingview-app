@@ -13,7 +13,8 @@ export type TradingViewAction =
 export type StrategyName = 
   | 'bread_and_butter' 
   | 'momentum' 
-  | 'manual_bmnr';
+  | 'manual_bmnr'
+  | 'one_click_trading';
 
 /**
  * Raw alert payload from TradingView webhook
