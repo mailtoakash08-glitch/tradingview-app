@@ -1035,20 +1035,20 @@ router.get("/", (req: Request, res: Response) => {
 
         <!-- Advanced Order Panel (Hidden in One-Click Mode) -->
         <div id="advancedOrderPanel">
-          <div class="form-group">
-            <label>Order Type</label>
-            <select id="orderType">
-              <option value="MKT">Market Order</option>
-              <option value="LMT">Limit Order</option>
-              <option value="STP">Stop Market</option>
+        <div class="form-group">
+          <label>Order Type</label>
+          <select id="orderType">
+            <option value="MKT">Market Order</option>
+            <option value="LMT">Limit Order</option>
+            <option value="STP">Stop Market</option>
               <option value="STP_LMT">Stop-Limit Order</option>
-              <option value="TRAIL">Trailing Stop</option>
-            </select>
-          </div>
+            <option value="TRAIL">Trailing Stop</option>
+          </select>
+        </div>
 
-          <div class="form-group" id="limitPriceGroup" style="display:none;">
-            <label>Limit Price</label>
-            <input type="number" id="limitPrice" step="0.01" placeholder="150.00" />
+        <div class="form-group" id="limitPriceGroup" style="display:none;">
+          <label>Limit Price</label>
+          <input type="number" id="limitPrice" step="0.01" placeholder="150.00" />
             
             <!-- 🎯 Auto-Margin for Stop-Limit Orders -->
             <div id="autoMarginContainer" style="display:none; margin-top: 8px; padding: 8px; background: rgba(41, 98, 255, 0.05); border-radius: 4px;">
@@ -1065,55 +1065,55 @@ router.get("/", (req: Request, res: Response) => {
                 </small>
               </div>
             </div>
-          </div>
+        </div>
 
-          <div class="form-group" id="stopPriceGroup" style="display:none;">
-            <label>🎯 Stop Price (Trigger)</label>
-            <input type="number" id="stopPrice" step="0.01" placeholder="150.00" />
-            <small style="color: #787B86; font-size: 11px; display: block; margin-top: 4px;">
-              Order triggers when price reaches this level
-            </small>
-          </div>
+        <div class="form-group" id="stopPriceGroup" style="display:none;">
+          <label>🎯 Stop Price (Trigger)</label>
+          <input type="number" id="stopPrice" step="0.01" placeholder="150.00" />
+          <small style="color: #787B86; font-size: 11px; display: block; margin-top: 4px;">
+            Order triggers when price reaches this level
+          </small>
+        </div>
 
-          <div class="form-group" id="trailingAmountGroup" style="display:none;">
-            <label>Trailing Amount ($)</label>
-            <input type="number" id="trailingAmount" step="0.01" placeholder="2.00" />
-          </div>
+        <div class="form-group" id="trailingAmountGroup" style="display:none;">
+          <label>Trailing Amount ($)</label>
+          <input type="number" id="trailingAmount" step="0.01" placeholder="2.00" />
+        </div>
 
-          <div class="form-group">
-            <label>Take Profit ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
-            <input type="number" id="takeProfit" step="0.01" placeholder="Leave empty to skip" />
-          </div>
+        <div class="form-group">
+          <label>Take Profit ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
+          <input type="number" id="takeProfit" step="0.01" placeholder="Leave empty to skip" />
+        </div>
 
-          <div class="form-group">
-            <label>Stop Loss ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
-            <input type="number" id="stopLoss" step="0.01" placeholder="Leave empty to skip" />
-          </div>
+        <div class="form-group">
+          <label>Stop Loss ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
+          <input type="number" id="stopLoss" step="0.01" placeholder="Leave empty to skip" />
+        </div>
 
-          <div class="checkbox-group">
-            <input type="checkbox" id="bracketOrder" />
-            <label for="bracketOrder">🎯 Bracket Order (Auto TP/SL based on risk %)</label>
-          </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="bracketOrder" />
+          <label for="bracketOrder">🎯 Bracket Order (Auto TP/SL based on risk %)</label>
+        </div>
 
-          <div id="bracketSettings" style="display:none; margin-top: 8px; padding: 12px; background: #1E222D; border-radius: 6px;">
-            <div class="form-group" style="margin-bottom: 8px;">
-              <label style="font-size: 12px;">Risk/Reward Ratio</label>
-              <select id="bracketRatio" style="font-size: 12px;">
-                <option value="1:1">1:1 (Conservative)</option>
-                <option value="1:2" selected>1:2 (Balanced)</option>
-                <option value="1:3">1:3 (Aggressive)</option>
-                <option value="2:3">2:3 (Custom)</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-size: 12px;">Risk Amount ($)</label>
-              <input type="number" id="bracketRiskAmount" step="0.01" placeholder="5.00" style="font-size: 12px;" value="5" />
-            </div>
+        <div id="bracketSettings" style="display:none; margin-top: 8px; padding: 12px; background: #1E222D; border-radius: 6px;">
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label style="font-size: 12px;">Risk/Reward Ratio</label>
+            <select id="bracketRatio" style="font-size: 12px;">
+              <option value="1:1">1:1 (Conservative)</option>
+              <option value="1:2" selected>1:2 (Balanced)</option>
+              <option value="1:3">1:3 (Aggressive)</option>
+              <option value="2:3">2:3 (Custom)</option>
+            </select>
           </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 12px;">Risk Amount ($)</label>
+            <input type="number" id="bracketRiskAmount" step="0.01" placeholder="5.00" style="font-size: 12px;" value="5" />
+          </div>
+        </div>
 
-          <div class="checkbox-group">
-            <input type="checkbox" id="extendedHours" checked />
-            <label for="extendedHours">Trade Extended Hours (Pre-Market & After-Hours)</label>
+        <div class="checkbox-group">
+          <input type="checkbox" id="extendedHours" checked />
+          <label for="extendedHours">Trade Extended Hours (Pre-Market & After-Hours)</label>
           </div>
         </div>
 
@@ -1246,7 +1246,7 @@ router.get("/", (req: Request, res: Response) => {
             <button class="order-tab" data-filter="TRAIL" onclick="filterOrdersByType('TRAIL')">
               📉 Trailing
             </button>
-          </div>
+      </div>
       
       <div id="pendingOrdersContainer">
         <table id="pendingOrdersTable">
@@ -1887,9 +1887,9 @@ router.get("/", (req: Request, res: Response) => {
           let orderTypeLabel = 'ORDER';
           
           // Determine label based on order type
-          if (order.orderType === 'STP') {
+      if (order.orderType === 'STP') {
             orderTypeLabel = 'STOP';
-          } else if (order.orderType === 'LMT') {
+      } else if (order.orderType === 'LMT') {
             orderTypeLabel = 'LIMIT';
           } else if (order.orderType === 'STP_LMT') {
             // 🎯 Stop-Limit: Show both prices
@@ -1899,8 +1899,8 @@ router.get("/", (req: Request, res: Response) => {
           }
           
           const line = lwCandleSeries.createPriceLine({
-            price: price,
-            color: color,
+        price: price,
+        color: color,
             lineWidth: 1,
             lineStyle: LightweightCharts.LineStyle.Dashed,
             axisLabelVisible: true,
@@ -1947,7 +1947,7 @@ router.get("/", (req: Request, res: Response) => {
       if (!lwChart || !lwCandleSeries || !price || price <= 0) {
         return;
       }
-      
+
       // Remove old SL line
       if (slLine) {
         try {
@@ -2732,8 +2732,20 @@ router.get("/", (req: Request, res: Response) => {
     }
 
     // Buy/Sell Button Handlers
-    document.getElementById('buyBtn').addEventListener('click', () => placeOrder('BUY'));
-    document.getElementById('sellBtn').addEventListener('click', () => placeOrder('SELL'));
+    document.getElementById('buyBtn').addEventListener('click', () => {
+      if (oneClickMode) {
+        quickBuy();
+      } else {
+        placeOrder('BUY');
+      }
+    });
+    document.getElementById('sellBtn').addEventListener('click', () => {
+      if (oneClickMode) {
+        quickSell();
+      } else {
+        placeOrder('SELL');
+      }
+    });
     
     // 🚀 ONE-CLICK MODE TOGGLE
     document.getElementById('oneClickMode').addEventListener('change', toggleOneClickMode);
