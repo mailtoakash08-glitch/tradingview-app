@@ -2549,6 +2549,9 @@ router.get("/", (req: Request, res: Response) => {
         
         console.log('✅ Protection lines drawn successfully');
         
+        // Setup dragging for the lines
+        setupProtectionLineDragging();
+        
         // Automatically place the protection orders in TWS
         setTimeout(() => {
           placeProtectionOrders();
