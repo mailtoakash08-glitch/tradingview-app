@@ -2662,7 +2662,7 @@ router.get("/", (req: Request, res: Response) => {
       
       // Calculate tolerance based on chart price range
       const priceRange = Math.abs(tpPrice - slPrice);
-      const tolerance = priceRange * 0.15; // 15% of range (more forgiving)
+      const tolerance = priceRange * 0.25; // 25% of range (very forgiving)
       
       console.log('Drag detection:', { price, slPrice, tpPrice, priceRange, tolerance, slDiff: Math.abs(price - slPrice), tpDiff: Math.abs(price - tpPrice) });
       
