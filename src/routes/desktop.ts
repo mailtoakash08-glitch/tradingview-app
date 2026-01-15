@@ -2449,8 +2449,16 @@ router.get("/", (req: Request, res: Response) => {
       let currentPrice;
       try {
         const response = await fetch(\`/api/market/quote/\${symbol}\`);
-        const data = await response.json();
-        currentPrice = data.regularMarketPrice || data.price || 0;
+        const result = await response.json();
+        
+        // Handle different response formats
+        if (result.success && result.data) {
+          currentPrice = result.data.regularMarketPrice || result.data.price || 0;
+        } else {
+          currentPrice = result.regularMarketPrice || result.price || 0;
+        }
+        
+        console.log('Fetched price for', symbol, ':', currentPrice, 'Response:', result);
         
         if (!currentPrice || currentPrice <= 0) {
           showNotification('❌ Error', 'Could not get current price for ' + symbol, 'error');
