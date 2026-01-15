@@ -2617,7 +2617,7 @@ router.get("/", (req: Request, res: Response) => {
         return;
       }
       
-      const chartElement = document.getElementById('lightweightChart');
+      const chartElement = document.getElementById('lightweight_chart');
       if (!chartElement) {
         console.error('Cannot setup dragging: chart element not found');
         return;
