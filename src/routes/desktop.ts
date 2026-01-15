@@ -2573,9 +2573,9 @@ router.get("/", (req: Request, res: Response) => {
     }
 
     // 🖱️ DRAGGABLE PROTECTION LINES
-    let isDraggingLine = false;
-    let draggedLineType = null; // 'stopLoss' or 'takeProfit'
-    let dragStartPrice = null;
+    let isDraggingProtectionLine = false;
+    let draggedProtectionLineType = null; // 'stopLoss' or 'takeProfit'
+    let dragProtectionStartPrice = null;
     
     function setupProtectionLineDragging() {
       if (!lwChart) return;
@@ -2605,22 +2605,22 @@ router.get("/", (req: Request, res: Response) => {
       const tolerance = Math.abs(tpPrice - slPrice) * 0.02; // 2% of range
       
       if (Math.abs(price - slPrice) < tolerance) {
-        isDraggingLine = true;
-        draggedLineType = 'stopLoss';
-        dragStartPrice = slPrice;
+        isDraggingProtectionLine = true;
+        draggedProtectionLineType = 'stopLoss';
+        dragProtectionStartPrice = slPrice;
         e.currentTarget.style.cursor = 'ns-resize';
         console.log('🖱️ Started dragging Stop Loss line');
       } else if (Math.abs(price - tpPrice) < tolerance) {
-        isDraggingLine = true;
-        draggedLineType = 'takeProfit';
-        dragStartPrice = tpPrice;
+        isDraggingProtectionLine = true;
+        draggedProtectionLineType = 'takeProfit';
+        dragProtectionStartPrice = tpPrice;
         e.currentTarget.style.cursor = 'ns-resize';
         console.log('🖱️ Started dragging Take Profit line');
       }
     }
     
     function handleLineMouseMove(e) {
-      if (!isDraggingLine || !draggedLineType) return;
+      if (!isDraggingProtectionLine || !draggedProtectionLineType) return;
       
       const rect = e.currentTarget.getBoundingClientRect();
       const y = e.clientY - rect.top;
@@ -2629,7 +2629,7 @@ router.get("/", (req: Request, res: Response) => {
       if (!newPrice) return;
       
       // Update the line position visually
-      if (draggedLineType === 'stopLoss') {
+      if (draggedProtectionLineType === 'stopLoss') {
         activePosition.stopLossPrice = newPrice;
         if (protectionLines.stopLoss) {
           lwCandleSeries.removePriceLine(protectionLines.stopLoss);
@@ -2642,7 +2642,7 @@ router.get("/", (req: Request, res: Response) => {
             title: \`🛑 STOP LOSS $\${newPrice.toFixed(2)}\`
           });
         }
-      } else if (draggedLineType === 'takeProfit') {
+      } else if (draggedProtectionLineType === 'takeProfit') {
         activePosition.takeProfitPrice = newPrice;
         if (protectionLines.takeProfit) {
           lwCandleSeries.removePriceLine(protectionLines.takeProfit);
@@ -2668,21 +2668,21 @@ router.get("/", (req: Request, res: Response) => {
     }
     
     function handleLineMouseUp(e) {
-      if (!isDraggingLine) return;
+      if (!isDraggingProtectionLine) return;
       
       e.currentTarget.style.cursor = 'default';
       
-      console.log(\`🎯 Drag ended for \${draggedLineType}\`, {
-        oldPrice: dragStartPrice,
-        newPrice: draggedLineType === 'stopLoss' ? activePosition.stopLossPrice : activePosition.takeProfitPrice
+      console.log(\`🎯 Drag ended for \${draggedProtectionLineType}\`, {
+        oldPrice: dragProtectionStartPrice,
+        newPrice: draggedProtectionLineType === 'stopLoss' ? activePosition.stopLossPrice : activePosition.takeProfitPrice
       });
       
       // Place/update the real order in TWS
       placeProtectionOrders();
       
-      isDraggingLine = false;
-      draggedLineType = null;
-      dragStartPrice = null;
+      isDraggingProtectionLine = false;
+      draggedProtectionLineType = null;
+      dragProtectionStartPrice = null;
     }
     
     // Convert Y-coordinate to price using Lightweight Charts API
