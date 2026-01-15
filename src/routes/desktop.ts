@@ -2444,7 +2444,7 @@ router.get("/", (req: Request, res: Response) => {
         
         console.log('🎯 Order response:', result);
         
-        if (result.success) {
+        if (result.status === 'ok' || result.success) {
           showNotification('✅ Order Placed!', \`\${action} \${quantity} \${symbol} @ ~$\${currentPrice.toFixed(2)}\`, 'success');
           
           activePosition = {
