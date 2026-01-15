@@ -2521,6 +2521,12 @@ router.get("/", (req: Request, res: Response) => {
         activePosition.takeProfitPrice = takeProfitPrice;
         
         console.log('✅ Protection lines drawn successfully');
+        
+        // Automatically place the protection orders in TWS
+        setTimeout(() => {
+          placeProtectionOrders();
+        }, 1000);
+        
       } catch (e) {
         console.error('Error drawing protection lines:', e);
       }
@@ -2566,6 +2572,223 @@ router.get("/", (req: Request, res: Response) => {
       document.getElementById('pnlRiskReward').textContent = \`1:\${riskReward.toFixed(2)}\`;
     }
 
+    // 🖱️ DRAGGABLE PROTECTION LINES
+    let isDraggingLine = false;
+    let draggedLineType = null; // 'stopLoss' or 'takeProfit'
+    let dragStartPrice = null;
+    
+    function setupProtectionLineDragging() {
+      if (!lwChart) return;
+      
+      const chartElement = document.getElementById('lightweightChart');
+      if (!chartElement) return;
+      
+      chartElement.addEventListener('mousedown', handleLineMouseDown);
+      chartElement.addEventListener('mousemove', handleLineMouseMove);
+      chartElement.addEventListener('mouseup', handleLineMouseUp);
+      chartElement.addEventListener('mouseleave', handleLineMouseUp);
+      
+      console.log('✅ Protection line dragging enabled');
+    }
+    
+    function handleLineMouseDown(e) {
+      if (!activePosition || !protectionLines.stopLoss || !protectionLines.takeProfit) return;
+      
+      const rect = e.currentTarget.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const price = coordinateToPrice(y);
+      
+      if (!price) return;
+      
+      const slPrice = activePosition.stopLossPrice;
+      const tpPrice = activePosition.takeProfitPrice;
+      const tolerance = Math.abs(tpPrice - slPrice) * 0.02; // 2% of range
+      
+      if (Math.abs(price - slPrice) < tolerance) {
+        isDraggingLine = true;
+        draggedLineType = 'stopLoss';
+        dragStartPrice = slPrice;
+        e.currentTarget.style.cursor = 'ns-resize';
+        console.log('🖱️ Started dragging Stop Loss line');
+      } else if (Math.abs(price - tpPrice) < tolerance) {
+        isDraggingLine = true;
+        draggedLineType = 'takeProfit';
+        dragStartPrice = tpPrice;
+        e.currentTarget.style.cursor = 'ns-resize';
+        console.log('🖱️ Started dragging Take Profit line');
+      }
+    }
+    
+    function handleLineMouseMove(e) {
+      if (!isDraggingLine || !draggedLineType) return;
+      
+      const rect = e.currentTarget.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const newPrice = coordinateToPrice(y);
+      
+      if (!newPrice) return;
+      
+      // Update the line position visually
+      if (draggedLineType === 'stopLoss') {
+        activePosition.stopLossPrice = newPrice;
+        if (protectionLines.stopLoss) {
+          lwCandleSeries.removePriceLine(protectionLines.stopLoss);
+          protectionLines.stopLoss = lwCandleSeries.createPriceLine({
+            price: newPrice,
+            color: '#F44336',
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: \`🛑 STOP LOSS $\${newPrice.toFixed(2)}\`
+          });
+        }
+      } else if (draggedLineType === 'takeProfit') {
+        activePosition.takeProfitPrice = newPrice;
+        if (protectionLines.takeProfit) {
+          lwCandleSeries.removePriceLine(protectionLines.takeProfit);
+          protectionLines.takeProfit = lwCandleSeries.createPriceLine({
+            price: newPrice,
+            color: '#4CAF50',
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: \`🎯 TAKE PROFIT $\${newPrice.toFixed(2)}\`
+          });
+        }
+      }
+      
+      // Update P&L display in real-time
+      updatePnLDisplay(
+        activePosition.quantity,
+        activePosition.entryPrice,
+        activePosition.stopLossPrice,
+        activePosition.takeProfitPrice,
+        activePosition.direction
+      );
+    }
+    
+    function handleLineMouseUp(e) {
+      if (!isDraggingLine) return;
+      
+      e.currentTarget.style.cursor = 'default';
+      
+      console.log(\`🎯 Drag ended for \${draggedLineType}\`, {
+        oldPrice: dragStartPrice,
+        newPrice: draggedLineType === 'stopLoss' ? activePosition.stopLossPrice : activePosition.takeProfitPrice
+      });
+      
+      // Place/update the real order in TWS
+      placeProtectionOrders();
+      
+      isDraggingLine = false;
+      draggedLineType = null;
+      dragStartPrice = null;
+    }
+    
+    // Convert Y-coordinate to price using Lightweight Charts API
+    function coordinateToPrice(y) {
+      if (!lwChart) return null;
+      
+      try {
+        const priceScale = lwChart.priceScale('right');
+        const price = priceScale.coordinateToPrice(y);
+        return price;
+      } catch (error) {
+        console.error('Error converting coordinate to price:', error);
+        return null;
+      }
+    }
+    
+    // Place real STOP and LIMIT orders in TWS
+    async function placeProtectionOrders() {
+      if (!activePosition) return;
+      
+      const { symbol, quantity, stopLossPrice, takeProfitPrice, direction, action } = activePosition;
+      const broker = document.getElementById('broker').value;
+      const exitAction = action === 'BUY' ? 'SELL' : 'BUY';
+      
+      const marketStatus = checkMarketHours();
+      const isMarketHours = marketStatus.isOpen;
+      
+      try {
+        showNotification('⚡ Placing Protection Orders...', \`SL: $\${stopLossPrice.toFixed(2)} | TP: $\${takeProfitPrice.toFixed(2)}\`, 'info');
+        
+        // 1. Place STOP LOSS order
+        const slOrderType = isMarketHours ? 'STP' : 'STP_LMT';
+        const slPayload = {
+          strategy: 'one_click_trading',
+          action: exitAction === 'BUY' ? 'ENTRY_LONG' : 'ENTRY_SHORT', // Exit is opposite
+          symbol: symbol,
+          qty: quantity,
+          broker: broker,
+          orderType: slOrderType,
+          stopPrice: stopLossPrice,
+          outsideRth: !isMarketHours
+        };
+        
+        // For Stop-Limit outside RTH, add limit price with margin
+        if (!isMarketHours && slOrderType === 'STP_LMT') {
+          const margin = getStopLimitMargin() / 100;
+          slPayload.limitPrice = exitAction === 'BUY' 
+            ? stopLossPrice * (1 + margin) 
+            : stopLossPrice * (1 - margin);
+        }
+        
+        // 2. Place TAKE PROFIT order (always LIMIT)
+        const tpPayload = {
+          strategy: 'one_click_trading',
+          action: exitAction === 'BUY' ? 'ENTRY_LONG' : 'ENTRY_SHORT',
+          symbol: symbol,
+          qty: quantity,
+          broker: broker,
+          orderType: 'LMT',
+          limitPrice: takeProfitPrice,
+          outsideRth: !isMarketHours
+        };
+        
+        // Send both orders
+        const [slResponse, tpResponse] = await Promise.all([
+          fetch('/webhook/tradingview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(slPayload)
+          }),
+          fetch('/webhook/tradingview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tpPayload)
+          })
+        ]);
+        
+        const [slResult, tpResult] = await Promise.all([
+          slResponse.json(),
+          tpResponse.json()
+        ]);
+        
+        if ((slResult.status === 'ok' || slResult.success) && (tpResult.status === 'ok' || tpResult.success)) {
+          showNotification('✅ Protection Orders Placed!', \`SL & TP orders sent to TWS\`, 'success');
+          
+          // Store order IDs for future updates
+          activePosition.slOrderId = slResult.orderId;
+          activePosition.tpOrderId = tpResult.orderId;
+          
+          console.log('✅ Protection orders placed:', { slOrderId: slResult.orderId, tpOrderId: tpResult.orderId });
+          
+          // Refresh pending orders to show them in UI
+          setTimeout(() => {
+            fetchPendingOrders();
+          }, 500);
+        } else {
+          showNotification('⚠️ Protection Orders Failed', 'Check console for details', 'warning');
+          console.error('Protection order errors:', { slResult, tpResult });
+        }
+        
+      } catch (error) {
+        console.error('Error placing protection orders:', error);
+        showNotification('❌ Error', 'Failed to place protection orders', 'error');
+      }
+    }
+
     // 🎛️ ONE-CLICK MODE TOGGLE
     function toggleOneClickMode() {
       oneClickMode = document.getElementById('oneClickMode').checked;
@@ -2581,6 +2804,9 @@ router.get("/", (req: Request, res: Response) => {
         updateMarketHoursIndicator();
         setInterval(updateMarketHoursIndicator, 60000);
         
+        // Enable draggable protection lines
+        setupProtectionLineDragging();
+        
         showNotification('⚡ One-Click Mode Enabled', 'Click Buy/Sell to instantly open position with draggable TP/SL', 'info');
       } else {
         advancedPanel.style.display = 'block';
@@ -2588,6 +2814,9 @@ router.get("/", (req: Request, res: Response) => {
         sellBtn.textContent = '🔴 Sell';
         document.getElementById('marketHoursIndicator').style.display = 'none';
         document.getElementById('oneClickPnLDisplay').style.display = 'none';
+        
+        // Remove protection lines when disabling one-click mode
+        removeProtectionLines();
         
         removeProtectionLines();
         activePosition = null;
