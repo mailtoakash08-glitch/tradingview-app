@@ -1481,65 +1481,9 @@ router.get("/", (req: Request, res: Response) => {
     
     // Update watchlist with real prices
     async function updateWatchlistPrices() {
-      const selectedBroker = document.getElementById('broker').value;
-      const useTWS = selectedBroker === 'ibkr';
-      
       for (const symbol of watchlist) {
         try {
-          // Try TWS first if in IBKR mode
-          if (useTWS) {
-            try {
-              const cleanSymbol = symbol.split(':')[0]; // Remove any :1 suffix
-              const twsResponse = await fetch(\`/api/market/tws-quote/\${cleanSymbol}\`);
-              const twsResult = await twsResponse.json();
-              
-              if (twsResult.success && twsResult.data) {
-                const priceEl = document.getElementById('price-' + symbol);
-                const changeEl = document.getElementById('change-' + symbol);
-                const lowEl = document.getElementById('low-' + symbol);
-                const highEl = document.getElementById('high-' + symbol);
-                const volumeEl = document.getElementById('volume-' + symbol);
-                
-                if (priceEl) {
-                  priceEl.textContent = '$' + twsResult.data.last.toFixed(2);
-                }
-                
-                // For change %, we still need Yahoo as TWS doesn't provide it
-                const yahooResponse = await fetch(\`/api/market/quote/\${cleanSymbol}\`);
-                const yahooResult = await yahooResponse.json();
-                
-                if (changeEl && yahooResult.success) {
-                  const changePercent = yahooResult.data.changePercent.toFixed(2);
-                  const changeClass = yahooResult.data.change >= 0 ? 'positive' : 'negative';
-                  changeEl.textContent = (yahooResult.data.change >= 0 ? '+' : '') + changePercent + '%';
-                  changeEl.className = 'watchlist-change ' + changeClass;
-                }
-                
-                // Show bid/ask for TWS (just update the values, not labels)
-                if (lowEl && twsResult.data.bid) {
-                  lowEl.textContent = '$' + twsResult.data.bid.toFixed(2);
-                }
-                
-                if (highEl && twsResult.data.ask) {
-                  highEl.textContent = '$' + twsResult.data.ask.toFixed(2);
-                }
-                
-                if (volumeEl && yahooResult.success && yahooResult.data.volume) {
-                  const vol = yahooResult.data.volume;
-                  const volStr = vol >= 1000000 ? (vol / 1000000).toFixed(1) + 'M' : 
-                               vol >= 1000 ? (vol / 1000).toFixed(1) + 'K' : 
-                               vol.toString();
-                  volumeEl.textContent = volStr;
-                }
-                
-                continue; // Skip Yahoo fallback
-              }
-            } catch (twsError) {
-              console.log('TWS data not available for', symbol, '- falling back to Yahoo');
-            }
-          }
-          
-          // Fallback to Yahoo Finance
+          // Use Yahoo Finance only (no TWS to avoid 404 errors)
           const cleanSymbol = symbol.split(':')[0]; // Remove any :1 suffix
           const response = await fetch(\`/api/market/quote/\${cleanSymbol}\`);
           const result = await response.json();
