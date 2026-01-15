@@ -2771,33 +2771,65 @@ router.get("/", (req: Request, res: Response) => {
       }
       
       try {
-        // Get the price scale
+        // Get the chart container element
+        const chartElement = document.getElementById('lightweight_chart');
+        if (!chartElement) {
+          console.error('Chart element not found');
+          return null;
+        }
+        
+        const chartHeight = chartElement.clientHeight;
+        
+        // Get the visible logical range
         const timeScale = lwChart.timeScale();
-        const priceScale = lwCandleSeries.priceScale();
+        const visibleLogicalRange = timeScale.getVisibleLogicalRange();
         
-        // Convert coordinate to price
-        const price = priceScale.coordinateToPrice(y);
+        if (!visibleLogicalRange) {
+          console.error('No visible logical range');
+          return null;
+        }
         
-        console.log('Coordinate to price:', y, '->', price);
+        // Get the price range by getting the series data
+        const seriesData = lwCandleSeries.data ? lwCandleSeries.data() : null;
+        
+        if (!seriesData || seriesData.length === 0) {
+          console.error('No series data available');
+          return null;
+        }
+        
+        // Find min and max prices in visible range
+        let minPrice = Infinity;
+        let maxPrice = -Infinity;
+        
+        const startIndex = Math.floor(visibleLogicalRange.from);
+        const endIndex = Math.ceil(visibleLogicalRange.to);
+        
+        for (let i = Math.max(0, startIndex); i < Math.min(seriesData.length, endIndex); i++) {
+          const candle = seriesData[i];
+          if (candle.high > maxPrice) maxPrice = candle.high;
+          if (candle.low < minPrice) minPrice = candle.low;
+        }
+        
+        if (minPrice === Infinity || maxPrice === -Infinity) {
+          console.error('Could not determine price range');
+          return null;
+        }
+        
+        // Add 5% padding to price range (same as chart default)
+        const priceRange = maxPrice - minPrice;
+        const padding = priceRange * 0.05;
+        minPrice -= padding;
+        maxPrice += padding;
+        
+        // Convert y coordinate to price
+        // y=0 is top of chart (highest price), y=chartHeight is bottom (lowest price)
+        const pricePerPixel = (maxPrice - minPrice) / chartHeight;
+        const price = maxPrice - (y * pricePerPixel);
+        
+        console.log('Coordinate to price:', { y, chartHeight, minPrice, maxPrice, pricePerPixel, price });
         return price;
       } catch (error) {
         console.error('Error converting coordinate to price:', error);
-        
-        // Fallback: manual calculation
-        try {
-          const chartHeight = document.getElementById('lightweightChart').clientHeight;
-          const priceRange = lwChart.priceScale('right').getVisibleRange();
-          
-          if (priceRange) {
-            const pricePerPixel = (priceRange.from - priceRange.to) / chartHeight;
-            const price = priceRange.to + (y * pricePerPixel);
-            console.log('Fallback price calculation:', price);
-            return price;
-          }
-        } catch (e) {
-          console.error('Fallback also failed:', e);
-        }
-        
         return null;
       }
     }
