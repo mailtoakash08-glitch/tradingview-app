@@ -1006,95 +1006,143 @@ router.get("/", (req: Request, res: Response) => {
           <input type="text" id="symbol" placeholder="AAPL" required />
         </div>
 
-        <div class="form-group">
-          <label>Quantity (Shares)</label>
-          <input type="number" id="quantity" placeholder="100" min="1" required />
-        </div>
-
-        <div class="form-group">
-          <label>Order Type</label>
-          <select id="orderType">
-            <option value="MKT">Market Order</option>
-            <option value="LMT">Limit Order</option>
-            <option value="STP">Stop Market</option>
-            <option value="STP_LMT">Stop-Limit Order</option>
-            <option value="TRAIL">Trailing Stop</option>
-          </select>
-        </div>
-
-        <div class="form-group" id="limitPriceGroup" style="display:none;">
-          <label>Limit Price</label>
-          <input type="number" id="limitPrice" step="0.01" placeholder="150.00" />
-          
-          <!-- 🎯 Auto-Margin for Stop-Limit Orders -->
-          <div id="autoMarginContainer" style="display:none; margin-top: 8px; padding: 8px; background: rgba(41, 98, 255, 0.05); border-radius: 4px;">
-            <div class="checkbox-group" style="margin: 0 0 8px 0;">
-              <input type="checkbox" id="autoMargin" checked />
-              <label for="autoMargin" style="font-size: 12px;">🎯 Auto-calculate with margin</label>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="font-size: 11px; color: #787B86; margin: 0;">Margin:</label>
-              <input type="number" id="marginPercent" value="0.3" step="0.1" min="0.1" max="5" style="width: 60px; padding: 4px 8px; font-size: 12px;" />
-              <span style="font-size: 11px; color: #787B86;">%</span>
-              <small style="color: #787B86; font-size: 10px; flex: 1;">
-                (Adds buffer to stop price)
-              </small>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group" id="stopPriceGroup" style="display:none;">
-          <label>🎯 Stop Price (Trigger)</label>
-          <input type="number" id="stopPrice" step="0.01" placeholder="150.00" />
+        <!-- 🚀 ONE-CLICK TRADING MODE -->
+        <div class="trading-mode-toggle" style="margin-bottom: 16px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="oneClickMode" />
+            <span style="font-size: 13px; font-weight: 600;">⚡ One-Click Trading (Draggable Lines)</span>
+          </label>
           <small style="color: #787B86; font-size: 11px; display: block; margin-top: 4px;">
-            Order triggers when price reaches this level
+            Enable to trade with draggable Stop Loss & Take Profit lines
           </small>
         </div>
 
-        <div class="form-group" id="trailingAmountGroup" style="display:none;">
-          <label>Trailing Amount ($)</label>
-          <input type="number" id="trailingAmount" step="0.01" placeholder="2.00" />
+        <!-- Market Hours Indicator -->
+        <div id="marketHoursIndicator" style="padding: 8px; background: rgba(76, 175, 80, 0.1); border-left: 3px solid #4CAF50; border-radius: 4px; margin-bottom: 12px; display: none;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="marketStatusIcon">🟢</span>
+            <span id="marketStatusText" style="font-size: 12px; color: #4CAF50; font-weight: 500;">Market Open</span>
+          </div>
+          <small id="marketStatusDetail" style="color: #787B86; font-size: 10px; display: block; margin-top: 4px;">
+            Regular trading hours - Using market/stop orders
+          </small>
         </div>
 
         <div class="form-group">
-          <label>Take Profit ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
-          <input type="number" id="takeProfit" step="0.01" placeholder="Leave empty to skip" />
+          <label>Quantity (Shares)</label>
+          <input type="number" id="quantity" placeholder="10" min="1" value="10" required />
         </div>
 
-        <div class="form-group">
-          <label>Stop Loss ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
-          <input type="number" id="stopLoss" step="0.01" placeholder="Leave empty to skip" />
-        </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="bracketOrder" />
-          <label for="bracketOrder">🎯 Bracket Order (Auto TP/SL based on risk %)</label>
-        </div>
-
-        <div id="bracketSettings" style="display:none; margin-top: 8px; padding: 12px; background: #1E222D; border-radius: 6px;">
-          <div class="form-group" style="margin-bottom: 8px;">
-            <label style="font-size: 12px;">Risk/Reward Ratio</label>
-            <select id="bracketRatio" style="font-size: 12px;">
-              <option value="1:1">1:1 (Conservative)</option>
-              <option value="1:2" selected>1:2 (Balanced)</option>
-              <option value="1:3">1:3 (Aggressive)</option>
-              <option value="2:3">2:3 (Custom)</option>
+        <!-- Advanced Order Panel (Hidden in One-Click Mode) -->
+        <div id="advancedOrderPanel">
+          <div class="form-group">
+            <label>Order Type</label>
+            <select id="orderType">
+              <option value="MKT">Market Order</option>
+              <option value="LMT">Limit Order</option>
+              <option value="STP">Stop Market</option>
+              <option value="STP_LMT">Stop-Limit Order</option>
+              <option value="TRAIL">Trailing Stop</option>
             </select>
           </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-size: 12px;">Risk Amount ($)</label>
-            <input type="number" id="bracketRiskAmount" step="0.01" placeholder="5.00" style="font-size: 12px;" value="5" />
+
+          <div class="form-group" id="limitPriceGroup" style="display:none;">
+            <label>Limit Price</label>
+            <input type="number" id="limitPrice" step="0.01" placeholder="150.00" />
+            
+            <!-- 🎯 Auto-Margin for Stop-Limit Orders -->
+            <div id="autoMarginContainer" style="display:none; margin-top: 8px; padding: 8px; background: rgba(41, 98, 255, 0.05); border-radius: 4px;">
+              <div class="checkbox-group" style="margin: 0 0 8px 0;">
+                <input type="checkbox" id="autoMargin" checked />
+                <label for="autoMargin" style="font-size: 12px;">🎯 Auto-calculate with margin</label>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 11px; color: #787B86; margin: 0;">Margin:</label>
+                <input type="number" id="marginPercent" value="0.3" step="0.1" min="0.1" max="5" style="width: 60px; padding: 4px 8px; font-size: 12px;" />
+                <span style="font-size: 11px; color: #787B86;">%</span>
+                <small style="color: #787B86; font-size: 10px; flex: 1;">
+                  (Adds buffer to stop price)
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" id="stopPriceGroup" style="display:none;">
+            <label>🎯 Stop Price (Trigger)</label>
+            <input type="number" id="stopPrice" step="0.01" placeholder="150.00" />
+            <small style="color: #787B86; font-size: 11px; display: block; margin-top: 4px;">
+              Order triggers when price reaches this level
+            </small>
+          </div>
+
+          <div class="form-group" id="trailingAmountGroup" style="display:none;">
+            <label>Trailing Amount ($)</label>
+            <input type="number" id="trailingAmount" step="0.01" placeholder="2.00" />
+          </div>
+
+          <div class="form-group">
+            <label>Take Profit ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
+            <input type="number" id="takeProfit" step="0.01" placeholder="Leave empty to skip" />
+          </div>
+
+          <div class="form-group">
+            <label>Stop Loss ($) <span style="color: #787B86; font-size: 11px;">- Optional</span></label>
+            <input type="number" id="stopLoss" step="0.01" placeholder="Leave empty to skip" />
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="bracketOrder" />
+            <label for="bracketOrder">🎯 Bracket Order (Auto TP/SL based on risk %)</label>
+          </div>
+
+          <div id="bracketSettings" style="display:none; margin-top: 8px; padding: 12px; background: #1E222D; border-radius: 6px;">
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label style="font-size: 12px;">Risk/Reward Ratio</label>
+              <select id="bracketRatio" style="font-size: 12px;">
+                <option value="1:1">1:1 (Conservative)</option>
+                <option value="1:2" selected>1:2 (Balanced)</option>
+                <option value="1:3">1:3 (Aggressive)</option>
+                <option value="2:3">2:3 (Custom)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 12px;">Risk Amount ($)</label>
+              <input type="number" id="bracketRiskAmount" step="0.01" placeholder="5.00" style="font-size: 12px;" value="5" />
+            </div>
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="extendedHours" checked />
+            <label for="extendedHours">Trade Extended Hours (Pre-Market & After-Hours)</label>
           </div>
         </div>
 
-        <div class="checkbox-group">
-          <input type="checkbox" id="extendedHours" checked />
-          <label for="extendedHours">Trade Extended Hours (Pre-Market & After-Hours)</label>
+        <!-- P&L Display for One-Click Trading -->
+        <div id="oneClickPnLDisplay" style="display: none; padding: 12px; background: #1E222D; border-radius: 6px; margin-bottom: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #2196F3; font-size: 11px; font-weight: 500;">💵 ENTRY</span>
+              <span id="pnlEntryPrice" style="color: #2196F3; font-size: 13px; font-weight: 600;">$0.00</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #F44336; font-size: 11px; font-weight: 500;">🛑 MAX LOSS</span>
+              <span id="pnlMaxLoss" style="color: #F44336; font-size: 13px; font-weight: 600;">$0.00</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #4CAF50; font-size: 11px; font-weight: 500;">🎯 TARGET</span>
+              <span id="pnlTarget" style="color: #4CAF50; font-size: 13px; font-weight: 600;">$0.00</span>
+            </div>
+            <div style="height: 1px; background: #2A2E39; margin: 4px 0;"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #787B86; font-size: 11px; font-weight: 500;">📊 RISK/REWARD</span>
+              <span id="pnlRiskReward" style="color: #FFA726; font-size: 13px; font-weight: 600;">1:0.0</span>
+            </div>
+          </div>
         </div>
 
         <div class="action-buttons">
-          <button type="button" class="btn btn-buy" id="buyBtn">Buy</button>
-          <button type="button" class="btn btn-sell" id="sellBtn">Sell</button>
+          <button type="button" class="btn btn-buy" id="buyBtn">🟢 Buy</button>
+          <button type="button" class="btn btn-sell" id="sellBtn">🔴 Sell</button>
         </div>
       </form>
 
@@ -1248,6 +1296,19 @@ router.get("/", (req: Request, res: Response) => {
       realizedPnL: 0,
       totalPnL: 0
     };
+
+    // 🚀 ONE-CLICK TRADING STATE
+    let oneClickMode = false;
+    let protectionLines = {
+      entry: null,
+      stopLoss: null,
+      takeProfit: null
+    };
+    let activePosition = null; // Track active position for protection lines
+    let isDraggingStop = false;
+    let isDraggingTarget = false;
+    let dragStartY = 0;
+    let dragStartPrice = 0;
 
     // Switch Combined Panel Tab (Positions / Pending Orders)
     function switchCombinedTab(tab) {
@@ -2290,8 +2351,305 @@ router.get("/", (req: Request, res: Response) => {
       }
     });
 
+    // ===============================================
+    // 🚀 ONE-CLICK TRADING SYSTEM
+    // ===============================================
+
+    // 🎯 MARKET HOURS DETECTION
+    function checkMarketHours() {
+      const now = new Date();
+      const nyTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const hours = nyTime.getHours();
+      const minutes = nyTime.getMinutes();
+      const day = nyTime.getDay();
+      
+      if (day === 0 || day === 6) return { isOpen: false, period: 'weekend' };
+      if (hours < 4) return { isOpen: false, period: 'closed' };
+      if (hours >= 4 && hours < 9) return { isOpen: false, period: 'premarket' };
+      if (hours === 9 && minutes < 30) return { isOpen: false, period: 'premarket' };
+      if (hours >= 16 && hours < 20) return { isOpen: false, period: 'afterhours' };
+      if (hours >= 20) return { isOpen: false, period: 'closed' };
+      
+      return { isOpen: true, period: 'regular' };
+    }
+
+    function getStopLimitMargin() {
+      const status = checkMarketHours();
+      if (status.period === 'premarket') return 0.015;
+      if (status.period === 'afterhours') return 0.010;
+      return 0.005;
+    }
+
+    function updateMarketHoursIndicator() {
+      const status = checkMarketHours();
+      const indicator = document.getElementById('marketHoursIndicator');
+      if (!indicator) return;
+      
+      const icon = document.getElementById('marketStatusIcon');
+      const text = document.getElementById('marketStatusText');
+      const detail = document.getElementById('marketStatusDetail');
+      
+      indicator.style.display = 'block';
+      
+      if (status.isOpen) {
+        indicator.style.background = 'rgba(76, 175, 80, 0.1)';
+        indicator.style.borderLeftColor = '#4CAF50';
+        icon.textContent = '🟢';
+        text.textContent = 'Market Open';
+        text.style.color = '#4CAF50';
+        detail.textContent = 'Regular trading hours - Using market/stop orders';
+      } else {
+        indicator.style.background = 'rgba(255, 167, 38, 0.1)';
+        indicator.style.borderLeftColor = '#FFA726';
+        icon.textContent = '🟡';
+        
+        const margin = (getStopLimitMargin() * 100).toFixed(1);
+        
+        if (status.period === 'premarket') {
+          text.textContent = 'Pre-Market';
+          text.style.color = '#FFA726';
+          detail.textContent = \`Using stop-limit with \${margin}% margin (high volatility)\`;
+        } else if (status.period === 'afterhours') {
+          text.textContent = 'After Hours';
+          text.style.color = '#FFA726';
+          detail.textContent = \`Using stop-limit with \${margin}% margin (medium volatility)\`;
+        } else if (status.period === 'weekend') {
+          text.textContent = 'Market Closed (Weekend)';
+          text.style.color = '#787B86';
+          detail.textContent = 'Orders will queue until Monday 9:30 AM EST';
+        } else {
+          text.textContent = 'Market Closed';
+          text.style.color = '#787B86';
+          detail.textContent = \`Using stop-limit with \${margin}% margin\`;
+        }
+      }
+    }
+
+    //🚀 ONE-CLICK QUICK BUY/SELL
+    async function quickBuy() {
+      await executeOneClickTrade('BUY', 'LONG');
+    }
+
+    async function quickSell() {
+      await executeOneClickTrade('SELL', 'SHORT');
+    }
+
+    async function executeOneClickTrade(action, direction) {
+      const broker = document.getElementById('broker').value;
+      const symbol = document.getElementById('symbol').value.toUpperCase().trim();
+      const quantity = parseInt(document.getElementById('quantity').value);
+      
+      if (!symbol || !quantity || quantity <= 0) {
+        showNotification('❌ Error', 'Please enter valid ticker and quantity', 'error');
+        return;
+      }
+      
+      let currentPrice;
+      try {
+        const response = await fetch(\`/api/market/quote/\${symbol}\`);
+        const data = await response.json();
+        currentPrice = data.regularMarketPrice || data.price || 0;
+        
+        if (!currentPrice || currentPrice <= 0) {
+          showNotification('❌ Error', 'Could not get current price for ' + symbol, 'error');
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching price:', error);
+        showNotification('❌ Error', 'Failed to fetch current price', 'error');
+        return;
+      }
+      
+      const marketStatus = checkMarketHours();
+      const isMarketHours = marketStatus.isOpen;
+      const orderType = isMarketHours ? 'MKT' : 'LMT';
+      const limitPrice = isMarketHours ? null : (action === 'BUY' ? currentPrice + 0.50 : currentPrice - 0.50);
+      
+      const payload = {
+        strategy: 'one_click_trading',
+        action: action === 'BUY' ? 'ENTRY_LONG' : 'ENTRY_SHORT',
+        symbol: symbol,
+        qty: quantity,
+        broker: broker,
+        orderType: orderType,
+        outsideRth: !isMarketHours
+      };
+      
+      if (limitPrice) payload.limitPrice = limitPrice;
+      
+      try {
+        showNotification('⚡ Placing Order...', \`\${action} \${quantity} \${symbol}\`, 'info');
+        
+        const response = await fetch('/webhook/tradingview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          showNotification('✅ Order Placed!', \`\${action} \${quantity} \${symbol} @ ~$\${currentPrice.toFixed(2)}\`, 'success');
+          
+          activePosition = {
+            symbol: symbol,
+            quantity: quantity,
+            direction: direction,
+            entryPrice: currentPrice,
+            action: action
+          };
+          
+          setTimeout(() => {
+            drawProtectionLines(symbol, quantity, currentPrice, direction, action);
+            fetchPositions();
+            fetchPendingOrders();
+          }, 1500);
+          
+        } else {
+          showNotification('❌ Order Failed', result.message || 'Unknown error', 'error');
+        }
+      } catch (error) {
+        console.error('Error placing order:', error);
+        showNotification('❌ Error', 'Failed to place order: ' + error.message, 'error');
+      }
+    }
+
+    // 🎨 PROTECTION LINES
+    function drawProtectionLines(symbol, quantity, entryPrice, direction, action) {
+      if (currentChartType !== 'lightweight' || !lwCandleSeries) {
+        console.log('Protection lines only work on Lightweight Chart');
+        return;
+      }
+      
+      removeProtectionLines();
+      
+      const stopLossPrice = direction === 'LONG' ? entryPrice * 0.98 : entryPrice * 1.02;
+      const takeProfitPrice = direction === 'LONG' ? entryPrice * 1.06 : entryPrice * 0.94;
+      
+      console.log('Drawing protection lines:', { entryPrice, stopLossPrice, takeProfitPrice });
+      
+      try {
+        protectionLines.entry = lwCandleSeries.createPriceLine({
+          price: entryPrice,
+          color: '#2196F3',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Solid,
+          axisLabelVisible: true,
+          title: \`💵 ENTRY \${quantity} \${direction} @ $\${entryPrice.toFixed(2)}\`
+        });
+        
+        protectionLines.stopLoss = lwCandleSeries.createPriceLine({
+          price: stopLossPrice,
+          color: '#F44336',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: \`🛑 STOP LOSS $\${stopLossPrice.toFixed(2)}\`
+        });
+        
+        protectionLines.takeProfit = lwCandleSeries.createPriceLine({
+          price: takeProfitPrice,
+          color: '#4CAF50',
+          lineWidth: 2,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: \`🎯 TAKE PROFIT $\${takeProfitPrice.toFixed(2)}\`
+        });
+        
+        updatePnLDisplay(quantity, entryPrice, stopLossPrice, takeProfitPrice, direction);
+        document.getElementById('oneClickPnLDisplay').style.display = 'block';
+        
+        // Store prices for dragging
+        activePosition.stopLossPrice = stopLossPrice;
+        activePosition.takeProfitPrice = takeProfitPrice;
+        
+        console.log('✅ Protection lines drawn successfully');
+      } catch (e) {
+        console.error('Error drawing protection lines:', e);
+      }
+    }
+
+    function removeProtectionLines() {
+      if (!lwCandleSeries) return;
+      
+      try {
+        if (protectionLines.entry) {
+          lwCandleSeries.removePriceLine(protectionLines.entry);
+          protectionLines.entry = null;
+        }
+        if (protectionLines.stopLoss) {
+          lwCandleSeries.removePriceLine(protectionLines.stopLoss);
+          protectionLines.stopLoss = null;
+        }
+        if (protectionLines.takeProfit) {
+          lwCandleSeries.removePriceLine(protectionLines.takeProfit);
+          protectionLines.takeProfit = null;
+        }
+      } catch (e) {
+        console.error('Error removing protection lines:', e);
+      }
+      
+      document.getElementById('oneClickPnLDisplay').style.display = 'none';
+    }
+
+    function updatePnLDisplay(quantity, entryPrice, stopPrice, targetPrice, direction) {
+      const stopDiff = direction === 'LONG' ? (stopPrice - entryPrice) : (entryPrice - stopPrice);
+      const maxLoss = Math.abs(stopDiff * quantity);
+      const maxLossPct = Math.abs((stopDiff / entryPrice) * 100);
+      
+      const targetDiff = direction === 'LONG' ? (targetPrice - entryPrice) : (entryPrice - targetPrice);
+      const targetProfit = Math.abs(targetDiff * quantity);
+      const targetProfitPct = Math.abs((targetDiff / entryPrice) * 100);
+      
+      const riskReward = maxLoss > 0 ? (targetProfit / maxLoss) : 0;
+      
+      document.getElementById('pnlEntryPrice').textContent = \`$\${entryPrice.toFixed(2)}\`;
+      document.getElementById('pnlMaxLoss').textContent = \`-$\${maxLoss.toFixed(2)} (-\${maxLossPct.toFixed(2)}%)\`;
+      document.getElementById('pnlTarget').textContent = \`+$\${targetProfit.toFixed(2)} (+\${targetProfitPct.toFixed(2)}%)\`;
+      document.getElementById('pnlRiskReward').textContent = \`1:\${riskReward.toFixed(2)}\`;
+    }
+
+    // 🎛️ ONE-CLICK MODE TOGGLE
+    function toggleOneClickMode() {
+      oneClickMode = document.getElementById('oneClickMode').checked;
+      const advancedPanel = document.getElementById('advancedOrderPanel');
+      const buyBtn = document.getElementById('buyBtn');
+      const sellBtn = document.getElementById('sellBtn');
+      
+      if (oneClickMode) {
+        advancedPanel.style.display = 'none';
+        buyBtn.textContent = '🟢 BUY (Quick)';
+        sellBtn.textContent = '🔴 SELL (Quick)';
+        
+        updateMarketHoursIndicator();
+        setInterval(updateMarketHoursIndicator, 60000);
+        
+        showNotification('⚡ One-Click Mode Enabled', 'Click Buy/Sell to instantly open position with draggable TP/SL', 'info');
+      } else {
+        advancedPanel.style.display = 'block';
+        buyBtn.textContent = '🟢 Buy';
+        sellBtn.textContent = '🔴 Sell';
+        document.getElementById('marketHoursIndicator').style.display = 'none';
+        document.getElementById('oneClickPnLDisplay').style.display = 'none';
+        
+        removeProtectionLines();
+        activePosition = null;
+      }
+    }
+
     // Place Order
     async function placeOrder(action) {
+      // 🚀 ONE-CLICK MODE: Use quick trading
+      if (oneClickMode) {
+        if (action === 'BUY') {
+          await quickBuy();
+        } else {
+          await quickSell();
+        }
+        return;
+      }
+      
+      // REGULAR MODE: Original logic
       const broker = document.getElementById('broker').value;
       const symbol = document.getElementById('symbol').value.toUpperCase().trim();
       const quantity = parseInt(document.getElementById('quantity').value);
@@ -2422,6 +2780,12 @@ router.get("/", (req: Request, res: Response) => {
     // Buy/Sell Button Handlers
     document.getElementById('buyBtn').addEventListener('click', () => placeOrder('BUY'));
     document.getElementById('sellBtn').addEventListener('click', () => placeOrder('SELL'));
+    
+    // 🚀 ONE-CLICK MODE TOGGLE
+    document.getElementById('oneClickMode').addEventListener('change', toggleOneClickMode);
+    
+    // Initialize market hours indicator (hidden by default)
+    updateMarketHoursIndicator();
 
     // Fetch Positions
     async function fetchPositions() {
